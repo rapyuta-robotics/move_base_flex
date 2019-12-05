@@ -71,7 +71,6 @@ class AbstractAction
   )
   {
     uint8_t slot = goal_handle.getGoal()->concurrency_slot;
-
     if(goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::RECALLING)
     {
       goal_handle.setCanceled();
@@ -112,7 +111,6 @@ class AbstractAction
 
   virtual void runAndCleanUp(GoalHandle &goal_handle, typename Execution::Ptr execution_ptr){
     uint8_t slot = goal_handle.getGoal()->concurrency_slot;
-
     execution_ptr->preRun();
     run_(goal_handle, *execution_ptr);
     ROS_DEBUG_STREAM_NAMED(name_, "Finished action \"" << name_ << "\" run method, waiting for execution thread to finish.");

@@ -66,6 +66,8 @@
 
 #include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 
+
+
 namespace mbf_abstract_nav
 {
 /**
@@ -83,9 +85,9 @@ namespace mbf_abstract_nav
 typedef actionlib::ActionServer<mbf_msgs::GetPathAction> ActionServerGetPath;
 typedef boost::shared_ptr<ActionServerGetPath> ActionServerGetPathPtr;
 
-//! ExePath action server
-typedef actionlib::ActionServer<mbf_msgs::ExePathAction> ActionServerExePath;
-typedef boost::shared_ptr<ActionServerExePath> ActionServerExePathPtr;
+//! Navigation action server
+typedef actionlib::ActionServer<forklift_interfaces::NavigateAction> ActionServerNavigate;
+typedef boost::shared_ptr<ActionServerNavigate> ActionServerNavigatePtr;
 
 //! Recovery action server
 typedef actionlib::ActionServer<mbf_msgs::RecoveryAction> ActionServerRecovery;
@@ -95,8 +97,8 @@ typedef boost::shared_ptr<ActionServerRecovery> ActionServerRecoveryPtr;
 typedef actionlib::ActionServer<mbf_msgs::MoveBaseAction> ActionServerMoveBase;
 typedef boost::shared_ptr<ActionServerMoveBase> ActionServerMoveBasePtr;
 
-//! ExePath action topic name
-const std::string name_action_exe_path = "exe_path";
+//! Navigation action topic name
+const std::string name_action_navigate = "navigate";
 //! GetPath action topic name
 const std::string name_action_get_path = "get_path";
 //! Recovery action topic name
@@ -111,7 +113,7 @@ typedef boost::shared_ptr<dynamic_reconfigure::Server<mbf_abstract_nav::MoveBase
  * @brief The AbstractNavigationServer is the abstract base class for all navigation servers in move_base_flex
  *        and bundles the @ref controller_execution "controller execution classes",the @ref planner_execution
  *        "planner execution classes" and the @ref recovery_execution "recovery execution classes". It provides
- *        the following action servers ActionServerGetPath -> callActionGetPath(), ActionServerExePath -> callActionExePath(),
+ *        the following action servers ActionServerGetPath -> callActionGetPath(), ActionServerNavigate -> callActionNavigate(),
  *        ActionServerRecovery -> callActionRecovery() and ActionServerMoveBase -> callActionMoveBase().
  *
  * @ingroup abstract_server navigation_server
@@ -232,14 +234,15 @@ typedef boost::shared_ptr<dynamic_reconfigure::Server<mbf_abstract_nav::MoveBase
 
     virtual void cancelActionGetPath(ActionServerGetPath::GoalHandle goal_handle);
 
-    /**
-     * @brief ExePath action execution method. This method will be called if the action server receives a goal
+
+      /**
+     * @brief Navigate action execution method. This method will be called if the action server receives a goal
      * @param goal SimpleActionServer goal containing all necessary parameters for the action execution. See the action
      *        definitions in mbf_msgs.
      */
-    virtual void callActionExePath(ActionServerExePath::GoalHandle goal_handle);
+    virtual void callActionNavigate(ActionServerNavigate::GoalHandle goal_handle);
 
-    virtual void cancelActionExePath(ActionServerExePath::GoalHandle goal_handle);
+    virtual void cancelActionNavigate(ActionServerNavigate::GoalHandle goal_handle);
 
     /**
      * @brief Recovery action execution method. This method will be called if the action server receives a goal
@@ -311,8 +314,8 @@ typedef boost::shared_ptr<dynamic_reconfigure::Server<mbf_abstract_nav::MoveBase
     //! shared pointer to the Recovery action server
     ActionServerRecoveryPtr action_server_recovery_ptr_;
 
-    //! shared pointer to the ExePath action server
-    ActionServerExePathPtr action_server_exe_path_ptr_;
+    //! shared pointer to the Navigation action server
+    ActionServerNavigatePtr action_server_navigate_ptr_;
 
     //! shared pointer to the GetPath action server
     ActionServerGetPathPtr action_server_get_path_ptr_;
