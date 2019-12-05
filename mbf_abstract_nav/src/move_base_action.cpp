@@ -263,7 +263,13 @@ void MoveBaseAction::actionGetPathDone(
       navigate_goal_.path.header = result.path.header; //TODO handle conversion from nav_msgs/Path to NavigatePath/Path
       for(std::size_t it=0; it<result.path.poses.size(); it++)
       {
-        navigate_goal_.path.checkpoints[it].pose = result.path.poses[it];
+        navigate_goal_.path.checkpoints[it].pose.x = result.path.poses[it].pose.position.x;
+        navigate_goal_.path.checkpoints[it].pose.y = result.path.poses[it].pose.position.y;
+        tf2::Quaternion qp(result.path.poses[it].pose.orientation.x, result.path.poses[it].pose.orientation.y, result.path.poses[it].pose.orientation.z, result.path.poses[it].pose.orientation.w);
+        tf2::Matrix3x3 mp(qp);
+        double roll, pitch, yaw;
+        mp.getRPY(roll, pitch, yaw);
+        navigate_goal_.path.checkpoints[it].pose.theta = yaw;
       }
       ROS_DEBUG_STREAM_NAMED("move_base", "Action \""
           << "move_base\" sends the path to \""
@@ -579,7 +585,13 @@ void MoveBaseAction::actionGetPathReplanningDone(
     navigate_goal_.path.header = result->path.header; //TODO handle conversion from nav_msgs/Path to NavigatePath/Path
     for(std::size_t it=0; it<result->path.poses.size(); it++)
     {
-      navigate_goal_.path.checkpoints[it].pose = result->path.poses[it];
+      navigate_goal_.path.checkpoints[it].pose.x = result->path.poses[it].pose.position.x;
+      navigate_goal_.path.checkpoints[it].pose.y = result->path.poses[it].pose.position.y;
+      tf2::Quaternion qp(result->path.poses[it].pose.orientation.x, result->path.poses[it].pose.orientation.y, result->path.poses[it].pose.orientation.z,result->path.poses[it].pose.orientation.w);
+      tf2::Matrix3x3 mp(qp);
+      double roll, pitch, yaw;
+      mp.getRPY(roll, pitch, yaw);
+      navigate_goal_.path.checkpoints[it].pose.theta = yaw;
     }
     forklift_interfaces::NavigateGoal goal(navigate_goal_);
     action_client_navigate_.sendGoal(

@@ -79,7 +79,15 @@ void ControllerAction::start(
       std::vector<geometry_msgs::PoseStamped> goal_path;
       for(std::size_t it = 0; it<goal.path.checkpoints.size(); it++)
       {
-        goal_path.push_back(goal.path.checkpoints[it].pose);
+        geometry_msgs::PoseStamped checkpoint_posestamped;
+        checkpoint_posestamped.header.frame_id = "map";
+        checkpoint_posestamped.pose.position.x = goal.path.checkpoints[it].pose.x;
+        checkpoint_posestamped.pose.position.y = goal.path.checkpoints[it].pose.y;
+        tf2::Quaternion q;
+        q.setRPY( 0, 0, goal.path.checkpoints[it].pose.theta );
+        q.normalize();
+        checkpoint_posestamped.pose.orientation = tf2::toMsg(q);
+        goal_path.push_back(checkpoint_posestamped);
       }
       execution_ptr->setNewPlan(goal_path);
       // Update also goal pose, so the feedback remains consistent
@@ -130,7 +138,15 @@ void ControllerAction::run(GoalHandle &goal_handle, AbstractControllerExecution 
   std::vector<geometry_msgs::PoseStamped> goal_path;
   for (int it = 0; it < goal.path.checkpoints.size(); it++)
   {
-    goal_path.push_back(goal.path.checkpoints[it].pose);
+    geometry_msgs::PoseStamped checkpoint_posestamped;
+    checkpoint_posestamped.header.frame_id = "map";
+    checkpoint_posestamped.pose.position.x = goal.path.checkpoints[it].pose.x;
+    checkpoint_posestamped.pose.position.y = goal.path.checkpoints[it].pose.y;
+    tf2::Quaternion q;
+    q.setRPY( 0, 0, goal.path.checkpoints[it].pose.theta );
+    q.normalize();
+    checkpoint_posestamped.pose.orientation = tf2::toMsg(q);
+    goal_path.push_back(checkpoint_posestamped);
   }
   
   const std::vector<geometry_msgs::PoseStamped> &plan = goal_path;

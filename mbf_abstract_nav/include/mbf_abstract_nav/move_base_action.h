@@ -47,6 +47,7 @@
 #include <mbf_msgs/GetPathAction.h>
 #include <forklift_interfaces/NavigateAction.h>
 #include <mbf_msgs/RecoveryAction.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 #include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/robot_information.h"

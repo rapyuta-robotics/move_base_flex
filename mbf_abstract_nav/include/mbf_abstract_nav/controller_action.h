@@ -46,6 +46,7 @@
 #include "mbf_abstract_nav/robot_information.h"
 #include <actionlib/server/action_server.h>
 #include <forklift_interfaces/NavigateAction.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 namespace mbf_abstract_nav{
 
