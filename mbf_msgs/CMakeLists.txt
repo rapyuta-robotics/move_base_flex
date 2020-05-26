@@ -11,6 +11,7 @@ find_package(catkin REQUIRED
   message_runtime
   nav_msgs
   std_msgs
+  rr_service
 )
 
 add_service_files(
