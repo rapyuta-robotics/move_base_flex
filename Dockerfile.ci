@@ -3,7 +3,7 @@ FROM rrdockerhub/ros-base-melodic-amd64:latest
 RUN mkdir -p /root/catkin_ws/src/.travis
 WORKDIR /root/catkin_ws
 
-COPY ./mbf_ci.rosinstall src/.rosinstall
+COPY ./move_base_flex_CI.rosinstall src/.rosinstall
 COPY ./.travis src/mbf/.travis
 
 
