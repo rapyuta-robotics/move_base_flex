@@ -166,12 +166,12 @@ void NavigateAction::start(GoalHandle &goal_handle)
   {
     geometry_msgs::PoseStamped robot_pose;
     robot_info_.getRobotPose(robot_pose);
-    navigate_result.angle_to_goal = mbf_utility::angle(robot_pose, plan.checkpoints.back().pose);
-    navigate_result.dist_to_goal = mbf_utility::distance(robot_pose, plan.checkpoints.back().pose);
+    navigate_result.angle_to_goal = mbf_utility::angle(robot_pose, goal.path.checkpoints.back().pose);
+    navigate_result.dist_to_goal = mbf_utility::distance(robot_pose, goal.path.checkpoints.back().pose);
     ROS_INFO("Succeeded from navigation, double checking for orientation from mbf with \
      dist_to_goal: %.4f, angle_to_goal: %.4f", navigate_result.dist_to_goal, navigate_result.angle_to_goal);
-    if ((navigate_result.dist_to_goal <= plan.xy_goal_tolerance || plan.xy_goal_tolerance <= 1e-5) 
-      && (navigate_result.angle_to_goal <= plan.yaw_goal_tolerance || plan.yaw_goal_tolerance <= 1e-5))
+    if ((navigate_result.dist_to_goal <= goal.path.xy_goal_tolerance || goal.path.xy_goal_tolerance <= 1e-5) 
+      && (navigate_result.angle_to_goal <= goal.path.yaw_goal_tolerance || goal.path.yaw_goal_tolerance <= 1e-5))
     {
       ROS_INFO_STREAM_NAMED("navigate", "Plan complete with desired goal tolerance");
       navigate_result.status = forklift_interfaces::NavigateResult::SUCCESS;
@@ -240,9 +240,9 @@ void NavigateAction::runNavigate()
   if(!path_segments_.empty())
   {
 
-    ROS_INFO_STREAM_NAMED("navigate","Spin turn: "<< static_cast<int>(path_segments_.front().checkpoints.front().spin_turn));
+    ROS_INFO_STREAM_NAMED("navigate","Spin turn: "<< static_cast<int>(path_segments_.front().checkpoints.front().node.spin_turn));
     //check if the first checkpoint needs spin turn
-    if(path_segments_.front().checkpoints.front().spin_turn)
+    if(path_segments_.front().checkpoints.front().node.spin_turn >=0)
     {
 
       const auto orientation = path_segments_.front().checkpoints.front().pose.pose.orientation;
@@ -261,7 +261,7 @@ void NavigateAction::runNavigate()
       
       if (fabs(min_angle)<10.0)
       {
-        path_segments_.front().checkpoints.front().spin_turn = false;
+        path_segments_.front().checkpoints.front().node.spin_turn = -1;
         action_state_ = NAVIGATE;
         return;
       }
@@ -270,8 +270,7 @@ void NavigateAction::runNavigate()
       
       action_state_ = SPIN_TURN;
       
-      path_segments_.front().checkpoints.front().spin_turn = false; 
-      
+      path_segments_.front().checkpoints.front().node.spin_turn = -1;    
       return;
     }
     else
@@ -362,19 +361,34 @@ bool NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoint&
   double initial_slope = std::atan2((current.pose.pose.position.y - previous.pose.pose.position.y), 
     (current.pose.pose.position.x - previous.pose.pose.position.x));
 
+  ROS_INFO("Initial orientation %f, initial angle: %f", initial_orientation, initial_slope);
+
   double orientation = tf2::getYaw(current.pose.pose.orientation);
   double slope = std::atan2((next.pose.pose.position.y - current.pose.pose.position.y), 
     (next.pose.pose.position.x - current.pose.pose.position.x));
 
+  ROS_INFO("Next orientation %f, Next angle: %f", orientation, slope);
+
+  // check if its straight line segment
+  if (std::abs(angles::shortest_angular_distance(initial_orientation, orientation)) < 3e-1) {
+    ROS_INFO("Expecting straight line checkpoint: %d and checkpoint: %d", previous.node.node_id, current.node.node_id);
+    return true;
+  }
+
+  // if it is not straight line, force spin turn
+  if (current.node.spin_turn > 0) {
+    return false;
+  } 
+
   // check if robot is facing forwards in both the segments
-  if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope)) < 2e-1) &&
-    (std::abs(angles::shortest_angular_distance(orientation, slope)) < 2e-1)) {
+  if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope)) < 3e-1) &&
+    (std::abs(angles::shortest_angular_distance(orientation, slope)) < 3e-1)) {
       return true;
   }
   
   // check if robot is facing backwards in both the segments
-  if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope+M_PI)) < 2e-1) &&
-    (std::abs(angles::shortest_angular_distance(orientation, slope+M_PI)) < 2e-1)) {
+  if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope+M_PI)) < 3e-1) &&
+    (std::abs(angles::shortest_angular_distance(orientation, slope+M_PI)) < 3e-1)) {
       return true;
   }
   return false;
@@ -413,19 +427,26 @@ bool NavigateAction::getSplitPath(
     }
     else if (i<plan.checkpoints.size()-1) // always make sure there is a point back and ahead
     {
-      bool spin = plan.checkpoints[i].node.spin_turn && plan.checkpoints[i].spin_turn;
-      if(spin || (plan.checkpoints[i].spin_turn && 
-          !(isSmoothTurnPossible(plan.checkpoints[i-1], plan.checkpoints[i], plan.checkpoints[i+1])))){
+      if (plan.checkpoints[i].node.spin_turn < 0)
+      {
+        segment.checkpoints.push_back(plan.checkpoints[i]);
+        result.push_back(segment);
+        segment.checkpoints.clear();
+        ROS_ERROR_STREAM_NAMED("navigate", "Terminating as the spin turn flag is set to -1");
+        break;
+      }
+      else if(!(isSmoothTurnPossible(plan.checkpoints[i-1], plan.checkpoints[i], plan.checkpoints[i+1]))){
         segment.checkpoints.push_back(plan.checkpoints[i]);
         result.push_back(segment);
         segment.checkpoints.clear();
         
         forklift_interfaces::Checkpoint checkpoint = plan.checkpoints[i];
-        checkpoint.spin_turn = false;
+        checkpoint.node.spin_turn = 0;
         
         segment.checkpoints.push_back(checkpoint);
       }
       else {
+        // treat -1 as smooth turn if it is not the last node.
         segment.checkpoints.push_back(plan.checkpoints[i]);
       }
     }
@@ -433,7 +454,6 @@ bool NavigateAction::getSplitPath(
     {
       ROS_INFO("Plan requires final node spin to be : %d", plan.checkpoints[i].node.spin_turn);
       forklift_interfaces::Checkpoint checkpoint = plan.checkpoints[i];
-      checkpoint.spin_turn = plan.checkpoints[i].node.spin_turn;
       segment.checkpoints.push_back(checkpoint);
       result.push_back(segment);
       segment.checkpoints.clear();
@@ -445,7 +465,8 @@ bool NavigateAction::getSplitPath(
     ROS_INFO_STREAM_NAMED("navigate","Split segments:");
     for (const auto& point : segment.checkpoints)
     {
-        ROS_INFO_STREAM_NAMED("navigate","["<< point.pose.pose.position.x << "," << point.pose.pose.position.y << "]" << "spin turn:" << static_cast<int>(point.spin_turn));
+        ROS_INFO_STREAM_NAMED("navigate","["<< point.pose.pose.position.x << "," << point.pose.pose.position.y << "]" << 
+          "spin turn:" << static_cast<int>(point.node.spin_turn));
     }
   }
 
@@ -512,7 +533,7 @@ void NavigateAction::actionExePathDone(
     case actionlib::SimpleClientGoalState::SUCCEEDED:
 
       // check if we need a spin turn at the last checkpoint
-      if(path_segments_.front().checkpoints.back().spin_turn)
+      if(path_segments_.front().checkpoints.back().node.spin_turn >= 0)
       {
         const auto orientation = path_segments_.front().checkpoints.back().pose.pose.orientation;
         geometry_msgs::PoseStamped robot_pose;
