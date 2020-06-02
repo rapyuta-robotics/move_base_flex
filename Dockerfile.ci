@@ -1,0 +1,31 @@
+FROM rrdockerhub/ros-base-melodic-amd64:latest
+
+RUN mkdir -p /root/catkin_ws/src/.travis
+WORKDIR /root/catkin_ws
+
+COPY ./move_base_flex_CI.rosinstall src/.rosinstall
+COPY ./.travis src/mbf/.travis
+
+
+# Setup for ssh onto github & bitbucket
+# Before running Docker, run locally: `cp ~/.ssh/id_rsa_unsafe id_rsa`
+RUN bash -c "source src/mbf/.travis/util.sh && travis_run apt-get update && travis_run apt-get -qq install -y ssh"
+RUN mkdir -p /root/.ssh
+COPY id_rsa /root/.ssh/id_rsa
+RUN chmod 700 /root/.ssh/id_rsa
+
+RUN ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+RUN ssh-keyscan -t rsa bitbucket.org >> ~/.ssh/known_hosts
+
+RUN wstool update -t src  --abort-changed-uris
+
+###  Stage 2:  Build ###
+FROM rrdockerhub/ros-base-melodic-amd64:latest
+COPY --from=0 /root/catkin_ws /root/catkin_ws
+WORKDIR /root/catkin_ws
+COPY . src/mbf
+
+# Remove this line if we can get python-catkin-tools to be in the base image
+RUN bash -c "source src/mbf/.travis/util.sh && travis_run apt-get update && travis_run apt-get -qq install -y python-catkin-tools"
+
+RUN ./src/mbf/.travis/build_in_docker.sh
