@@ -598,7 +598,7 @@ void NavigateAction::actionExePathDone(
       break;
   }
   action_state_ = action_state;
-  ROS_INFO("Updating current action state to %d after exe_path complete", action_state_)
+  ROS_INFO("Updating current action state to %d after exe_path complete", action_state_);
 }
 
 double NavigateAction::getSpinAngle(geometry_msgs::Quaternion orientation)
