@@ -431,7 +431,7 @@ bool NavigateAction::getSplitPath(
     else if (i<plan.checkpoints.size()-1) // always make sure there is a point back and ahead
     {
       int8_t smooth_turn = isSmoothTurnPossible(plan.checkpoints[i-1], plan.checkpoints[i], plan.checkpoints[i+1]);
-      if( smooth_turn > 0){
+      if( smooth_turn == 0){
         segment.checkpoints.push_back(plan.checkpoints[i]);
         result.push_back(segment);
         segment.checkpoints.clear();
