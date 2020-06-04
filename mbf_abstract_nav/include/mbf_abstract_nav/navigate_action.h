@@ -85,7 +85,7 @@ class NavigateAction
 
   void actionExePathFeedback(const mbf_msgs::ExePathFeedbackConstPtr &feedback);
 
-  bool isSmoothTurnPossible(const forklift_interfaces::Checkpoint& previous, 
+  int8_t isSmoothTurnPossible(const forklift_interfaces::Checkpoint& previous, 
     const forklift_interfaces::Checkpoint& current, const forklift_interfaces::Checkpoint& next);
 
   bool getSplitPath(

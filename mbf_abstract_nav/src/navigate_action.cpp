@@ -150,7 +150,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
 
   if(!split_result)
   {
-    ROS_ERROR_STREAM_NAMED("navigate", "Path provided was empty!");
+    ROS_ERROR_STREAM_NAMED("navigate", "Path provided was empty or invalid!");
     navigate_result.remarks = "Empty path provided!";
     navigate_result.status = forklift_interfaces::NavigateResult::INVALID_PATH;
     goal_handle.setAborted(navigate_result, navigate_result.remarks);
@@ -354,7 +354,7 @@ void NavigateAction::actionExePathFeedback(
 }
 
 
-bool NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoint& previous, 
+int8_t NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoint& previous, 
   const forklift_interfaces::Checkpoint& current, const forklift_interfaces::Checkpoint& next)
 {
   double initial_orientation = tf2::getYaw(previous.pose.pose.orientation);
@@ -372,26 +372,29 @@ bool NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoint&
   // check if its straight line segment
   if (std::abs(angles::shortest_angular_distance(initial_orientation, orientation)) < 3e-1) {
     ROS_INFO("Expecting straight line checkpoint: %d and checkpoint: %d", previous.node.node_id, current.node.node_id);
-    return true;
+    return 1;
   }
 
   // if it is not straight line, force spin turn
   if (current.node.spin_turn > 0) {
-    return false;
+    return 0;
   } 
+  else if (current.node.spin_turn < 0) {
+    return -1;
+  }
 
   // check if robot is facing forwards in both the segments
   if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope)) < 3e-1) &&
     (std::abs(angles::shortest_angular_distance(orientation, slope)) < 3e-1)) {
-      return true;
+      return 1;
   }
   
   // check if robot is facing backwards in both the segments
   if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope+M_PI)) < 3e-1) &&
     (std::abs(angles::shortest_angular_distance(orientation, slope+M_PI)) < 3e-1)) {
-      return true;
+      return 1;
   }
-  return false;
+  return 0;
 }
 
 bool NavigateAction::getSplitPath(
@@ -427,15 +430,8 @@ bool NavigateAction::getSplitPath(
     }
     else if (i<plan.checkpoints.size()-1) // always make sure there is a point back and ahead
     {
-      if (plan.checkpoints[i].node.spin_turn < 0)
-      {
-        segment.checkpoints.push_back(plan.checkpoints[i]);
-        result.push_back(segment);
-        segment.checkpoints.clear();
-        ROS_ERROR_STREAM_NAMED("navigate", "Terminating as the spin turn flag is set to -1");
-        break;
-      }
-      else if(!(isSmoothTurnPossible(plan.checkpoints[i-1], plan.checkpoints[i], plan.checkpoints[i+1]))){
+      int8_t smooth_turn = isSmoothTurnPossible(plan.checkpoints[i-1], plan.checkpoints[i], plan.checkpoints[i+1]);
+      if( smooth_turn > 0){
         segment.checkpoints.push_back(plan.checkpoints[i]);
         result.push_back(segment);
         segment.checkpoints.clear();
@@ -445,9 +441,12 @@ bool NavigateAction::getSplitPath(
         
         segment.checkpoints.push_back(checkpoint);
       }
+      else if (smooth_turn < 0) {
+        ROS_ERROR_STREAM_NAMED("navigate", "Terminating as the spin turn flag is set to -1");
+        return false;
+      }
       else {
-        // treat -1 as smooth turn if it is not the last node.
-        segment.checkpoints.push_back(plan.checkpoints[i]);
+         segment.checkpoints.push_back(plan.checkpoints[i]);
       }
     }
     else
