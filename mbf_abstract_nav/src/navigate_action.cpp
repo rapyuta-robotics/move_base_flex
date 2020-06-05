@@ -617,6 +617,7 @@ void NavigateAction::actionExePathDone(
       goal_handle_.setAborted();
       break;
   }
+  ROS_INFO("After exe_path, action_state tranisitioning to %d", action_state_);
 }
 
 double NavigateAction::getSpinAngle(geometry_msgs::Quaternion orientation)
