@@ -171,7 +171,6 @@ class NavigateAction
   };
 
   NavigateActionState action_state_;
-  std::mutex action_mutex_;
 };
 
 } /* mbf_abstract_nav */

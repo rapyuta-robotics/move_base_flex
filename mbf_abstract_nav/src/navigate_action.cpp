@@ -194,7 +194,6 @@ void NavigateAction::startNavigate()
 {
   while (action_state_ != SUCCEEDED && action_state_ != FAILED && action_state_ != CANCELED)
   {
-    action_mutex_.lock();
     switch (action_state_)
     {
     case NAVIGATE:
@@ -226,7 +225,6 @@ void NavigateAction::startNavigate()
     default:
       break;
     }
-    action_mutex_.unlock();
     ros::spinOnce();
     ros::Duration(0.1).sleep();
   }
@@ -511,7 +509,6 @@ void NavigateAction::actionExePathDone(
     const actionlib::SimpleClientGoalState &state,
     const mbf_msgs::ExePathResultConstPtr &result_ptr)
 {
-  std::lock_guard<std::mutex> lck (action_mutex_);
   action_state_ = FAILED;
   ROS_INFO_STREAM_NAMED("navigate", "Action \"exe_path\" finished.");
 
