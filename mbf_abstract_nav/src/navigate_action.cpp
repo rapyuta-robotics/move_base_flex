@@ -220,7 +220,7 @@ void NavigateAction::startNavigate()
       break; 
     
     default:
-      break;
+      ROS_INFO_STREAM_NAMED("Currently in navigation state: %d", action_state_);
     }
     ros::spinOnce();
     ros::Duration(0.1).sleep();
