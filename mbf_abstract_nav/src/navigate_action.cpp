@@ -217,7 +217,7 @@ void NavigateAction::startNavigate()
       break; 
     
     default:
-      ROS_INFO_STREAM_NAMED("navigate", "Currently in navigation state: %d", action_state_);
+      ROS_INFO_STREAM_NAMED("navigate", "Currently in navigation state>: " << action_state_);
     }
     ros::spinOnce();
     ros::Duration(0.1).sleep();
