@@ -94,7 +94,7 @@ void NavigateAction::cancel()
 
 void NavigateAction::start(GoalHandle &goal_handle)
 {
-  if (action_state_ == ACTIVE)
+  if (action_state_ == SPIN_ACTIVE)
   {
     if(!action_client_spin_turn_.getState().isDone())
     {
@@ -102,24 +102,18 @@ void NavigateAction::start(GoalHandle &goal_handle)
     }
   }
   action_state_ = SPLIT_PATH;
-
   goal_handle.setAccepted();
-
   goal_handle_ = goal_handle;
 
-  ROS_DEBUG_STREAM_NAMED("navigate", "Start action "  << "navigate");
+  ROS_INFO_STREAM_NAMED("navigate", "Start action "  << "navigate");
 
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
   const forklift_interfaces::NavigatePath &plan = goal.path;
-
   forklift_interfaces::NavigateResult navigate_result;
 
   exe_path_goal_.controller = goal.controller;
-
   ros::Duration connection_timeout(1.0);
-
   last_oscillation_reset_ = ros::Time::now();
-
   path_segments_.clear();
 
 
@@ -171,22 +165,23 @@ void NavigateAction::start(GoalHandle &goal_handle)
     ROS_INFO("Succeeded from navigation, double checking for orientation from mbf with \
      dist_to_goal: %.4f, angle_to_goal: %.4f", navigate_result.dist_to_goal, navigate_result.angle_to_goal);
     if ((navigate_result.dist_to_goal <= goal.path.xy_goal_tolerance || goal.path.xy_goal_tolerance <= 1e-5) 
-      && (navigate_result.angle_to_goal <= goal.path.yaw_goal_tolerance || goal.path.yaw_goal_tolerance <= 1e-5))
-    {
+      && (navigate_result.angle_to_goal <= goal.path.yaw_goal_tolerance || goal.path.yaw_goal_tolerance <= 1e-5)) {
       ROS_INFO_STREAM_NAMED("navigate", "Plan complete with desired goal tolerance");
       navigate_result.status = forklift_interfaces::NavigateResult::SUCCESS;
       navigate_result.remarks = "Action navigate completed successfully!";
       navigate_result.final_pose = robot_pose;
       goal_handle.setSucceeded(navigate_result, navigate_result.remarks);
     }
-    else
-    {
+    else {
       ROS_INFO_STREAM_NAMED("navigate", "Plan failed as the robot did not reach with desired goal tolerance");
       navigate_result.status = forklift_interfaces::NavigateResult::MISSED_GOAL;
       navigate_result.remarks = "Requested pose in the plan was not reached";
       navigate_result.final_pose = robot_pose;
       goal_handle.setAborted(navigate_result, navigate_result.remarks);
     }
+  }
+  else {
+    ROS_ERROR_STREAM_NAMED("navigate", "Navigation failed to reach the goal..!!!!");
   }
 }
 
@@ -202,21 +197,23 @@ void NavigateAction::startNavigate()
       break;
     case EXE_PATH:
       // state for executing current segment
+      ROS_INFO_STREAM_NAMED("navigate", "Sending goal to \"exe_path\" and waiting for server to accept the goal");
       last_oscillation_reset_ = ros::Time::now(); // important to reset the oscillation
       action_client_exe_path_.sendGoal(
           exe_path_goal_,
           boost::bind(&NavigateAction::actionExePathDone, this, _1, _2),
           boost::bind(&NavigateAction::actionExePathActive, this),
           boost::bind(&NavigateAction::actionExePathFeedback, this, _1));
-      action_state_ = ACTIVE;
+      action_state_ = EXE_PATH_ACTIVE;
       break;
     case SPIN_TURN:
       // state for executing spin turn
+      ROS_INFO_STREAM_NAMED("navigate", "Sending goal to \"spin_turn\" and waiting for server to accept the goal");
       action_client_spin_turn_.sendGoal(
         spin_turn_goal_,
         boost::bind(&NavigateAction::actionSpinTurnDone, this, _1, _2),
         boost::bind(&NavigateAction::actionSpinTurnActive, this));
-      action_state_ = ACTIVE;
+      action_state_ = SPIN_ACTIVE;
       break;
     case OSCILLATING:
       /* code */
@@ -265,9 +262,7 @@ void NavigateAction::runNavigate()
       }
 
       spin_turn_goal_.angle = yaw_goal;
-      
       action_state_ = SPIN_TURN;
-      
       path_segments_.front().checkpoints.front().node.spin_turn = -1;    
       return;
     }
@@ -294,14 +289,12 @@ void NavigateAction::runNavigate()
 void NavigateAction::actionSpinTurnActive()
 {
   ROS_INFO_STREAM_NAMED("navigate", "The \"spin_turn\" action is active.");
-  action_state_ = ACTIVE;
 }
 
 
 void NavigateAction::actionExePathActive()
 {
-  ROS_DEBUG_STREAM_NAMED("navigate", "The \"exe_path\" action is active.");
-  action_state_= ACTIVE;
+  ROS_INFO_STREAM_NAMED("navigate", "The \"exe_path\" action is active.");
 }
 
 void NavigateAction::actionExePathFeedback(
@@ -590,19 +583,19 @@ void NavigateAction::actionExePathDone(
 
     case actionlib::SimpleClientGoalState::PREEMPTED:
       // action was preempted successfully!
-      ROS_DEBUG_STREAM_NAMED("navigate", "The action \""
+      ROS_INFO_STREAM_NAMED("navigate", "The action \""
           << "exe_path" << "\" was preempted successfully!");
       // TODO
       break;
 
     case actionlib::SimpleClientGoalState::RECALLED:
-      ROS_DEBUG_STREAM_NAMED("navigate", "The action \""
+      ROS_INFO_STREAM_NAMED("navigate", "The action \""
           << "exe_path" << "\" was recalled!");
       // TODO
       break;
 
     case actionlib::SimpleClientGoalState::REJECTED:
-      ROS_DEBUG_STREAM_NAMED("navigate", "The action \""
+      ROS_INFO_STREAM_NAMED("navigate", "The action \""
           << "exe_path" << "\" was rejected!");
       // TODO
       break;
