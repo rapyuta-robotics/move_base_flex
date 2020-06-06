@@ -114,7 +114,7 @@ class NavigateAction
       const actionlib::SimpleClientGoalState &state,
       const aifl_msg::SpinTurnResultConstPtr &result);
   
-  double getSpinAngle(geometry_msgs::Quaternion orientation);
+  double getYaw(geometry_msgs::Quaternion orientation);
   
 
 
