@@ -93,8 +93,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
   goal_handle.setAccepted();
   goal_handle_ = goal_handle;
   
-  if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone())
-  {
+  if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone()) {
     ROS_INFO_STREAM_NAMED("navigate", "Received a new path when spin turn is active, waiting for spin turn to complete");
     action_client_spin_turn_.waitForResult(ros::Duration(60.0));
   }
@@ -139,8 +138,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
   }
   action_state_ = NAVIGATE; // start navigating with the split path
   startNavigate();
-  if (action_state_ == SUCCEEDED)
-  {
+  if (action_state_ == SUCCEEDED) {
     geometry_msgs::PoseStamped robot_pose;
     robot_info_.getRobotPose(robot_pose);
     navigate_result.angle_to_goal = mbf_utility::angle(robot_pose, goal.path.checkpoints.back().pose);
@@ -487,7 +485,6 @@ void NavigateAction::actionExePathDone(
       }
       break;
     case actionlib::SimpleClientGoalState::PREEMPTED:
-      action_state_ = FAILED;
       // action was preempted successfully!
       ROS_INFO_STREAM_NAMED("navigate", "The action \""
           << "exe_path" << "\" was preempted successfully!");
