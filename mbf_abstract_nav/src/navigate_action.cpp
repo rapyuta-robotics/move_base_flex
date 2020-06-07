@@ -495,7 +495,7 @@ void NavigateAction::actionExePathDone(
         action_state_ = SUCCEEDED;
         return;
       }
-      if (!path_segments_.empty) {
+      if (!path_segments_.empty()) {
         path_segments_.erase(path_segments_.begin()); //erase the done segment
       }
       break;
