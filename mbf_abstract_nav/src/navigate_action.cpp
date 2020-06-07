@@ -212,7 +212,7 @@ void NavigateAction::startNavigate()
         return;
     }
     ros::spinOnce();
-    //ros::Duration(0.1).sleep();
+    ros::Duration(0.1).sleep();
   }
 }
 
