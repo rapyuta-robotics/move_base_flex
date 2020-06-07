@@ -90,15 +90,15 @@ void NavigateAction::start(GoalHandle &goal_handle)
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
   const forklift_interfaces::NavigatePath &plan = goal.path;
   ROS_INFO_STREAM_NAMED("navigate", "Received a new path:" << goal);
+  goal_handle.setAccepted();
+  goal_handle_ = goal_handle;
+  
   if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone())
   {
     ROS_INFO_STREAM_NAMED("navigate", "Received a new path when spin turn is active, waiting for spin turn to complete");
     action_client_spin_turn_.waitForResult(ros::Duration(60.0));
   }
   action_state_ = SPLIT_PATH;
-  goal_handle.setAccepted();
-  goal_handle_ = goal_handle;
-
   ROS_INFO_STREAM_NAMED("navigate", "Start action "  << "navigate");
   forklift_interfaces::NavigateResult navigate_result;
 
@@ -109,8 +109,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
 
   geometry_msgs::PoseStamped robot_pose;
   // get the current robot pose only at the beginning, as exe_path will keep updating it as we move
-  if (!robot_info_.getRobotPose(robot_pose))
-  {
+  if (!robot_info_.getRobotPose(robot_pose)) {
     ROS_INFO_STREAM_NAMED("navigate", "Could not get the current robot pose!");
     navigate_result.remarks = "Could not get the current robot pose!";
     navigate_result.status = forklift_interfaces::NavigateResult::TF_ERROR;
@@ -212,6 +211,7 @@ void NavigateAction::startNavigate()
         break;
       default:
         ROS_INFO_STREAM_THROTTLE_NAMED(1, "navigate", "Currently in navigation state>: " << action_state_);
+        return;
     }
     ros::spinOnce();
     ros::Duration(0.1).sleep();
@@ -291,22 +291,18 @@ void NavigateAction::actionExePathFeedback(
   // as the later doesn't handle oscillations created by quickly failing repeated plans
 
   // if oscillation detection is enabled by osciallation_timeout != 0
-  if (!oscillation_timeout_.isZero())
-  {
+  if (!oscillation_timeout_.isZero()) {
     // check if oscillating
     // moved more than the minimum oscillation distance
-    if (mbf_utility::distance(robot_pose_, last_oscillation_pose_) >= oscillation_distance_)
-    {
+    if (mbf_utility::distance(robot_pose_, last_oscillation_pose_) >= oscillation_distance_) {
       last_oscillation_reset_ = ros::Time::now();
       last_oscillation_pose_ = robot_pose_;
     }
-    else if (last_oscillation_reset_ + oscillation_timeout_ < ros::Time::now())
-    {
+    else if (last_oscillation_reset_ + oscillation_timeout_ < ros::Time::now()) {
       std::stringstream oscillation_msgs;
       oscillation_msgs << "Robot is oscillating for " << (ros::Time::now() - last_oscillation_reset_).toSec() << "s!";
       ROS_WARN_STREAM_NAMED("exe_path", oscillation_msgs.str());
       action_client_exe_path_.cancelGoal();
-
       forklift_interfaces::NavigateResult navigate_result;
       navigate_result.status = forklift_interfaces::NavigateResult::OSCILLATION;
       navigate_result.remarks = oscillation_msgs.str();
@@ -489,6 +485,25 @@ void NavigateAction::actionExePathDone(
           ROS_WARN_STREAM_NAMED("navigate", "Abort the execution of the controller: " << result.remarks);
           goal_handle_.setAborted(navigate_result, state.getText());
       }
+      break;
+    case actionlib::SimpleClientGoalState::PREEMPTED:
+      // action was preempted successfully!
+      ROS_INFO_STREAM_NAMED("navigate", "The action \""
+          << "exe_path" << "\" was preempted successfully!");
+      // TODO
+      break;
+    case actionlib::SimpleClientGoalState::RECALLED:
+      ROS_INFO_STREAM_NAMED("navigate", "The action \""
+          << "exe_path" << "\" was recalled!");
+      // TODO
+      break;
+    case actionlib::SimpleClientGoalState::REJECTED:
+      ROS_INFO_STREAM_NAMED("navigate", "The action \""
+          << "exe_path" << "\" was rejected!");
+      // TODO
+      break;
+    case actionlib::SimpleClientGoalState::LOST:
+      // TODO
       break;
     default:
       action_state_ = FAILED;
