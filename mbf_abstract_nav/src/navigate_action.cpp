@@ -214,7 +214,7 @@ void NavigateAction::startNavigate()
         return;
     }
     ros::spinOnce();
-    ros::Duration(0.1).sleep();
+    //ros::Duration(0.1).sleep();
   }
 }
 
@@ -487,17 +487,20 @@ void NavigateAction::actionExePathDone(
       }
       break;
     case actionlib::SimpleClientGoalState::PREEMPTED:
+      action_state_ = FAILED;
       // action was preempted successfully!
       ROS_INFO_STREAM_NAMED("navigate", "The action \""
           << "exe_path" << "\" was preempted successfully!");
       // TODO
       break;
     case actionlib::SimpleClientGoalState::RECALLED:
+      action_state_ = FAILED;
       ROS_INFO_STREAM_NAMED("navigate", "The action \""
           << "exe_path" << "\" was recalled!");
       // TODO
       break;
     case actionlib::SimpleClientGoalState::REJECTED:
+      action_state_ = FAILED;
       ROS_INFO_STREAM_NAMED("navigate", "The action \""
           << "exe_path" << "\" was rejected!");
       // TODO
