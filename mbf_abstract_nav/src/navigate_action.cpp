@@ -39,6 +39,7 @@
  */
 
 #include <mbf_utility/navigation_utility.h>
+#include <thread>
 
 #include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/navigate_action.h"
@@ -85,7 +86,7 @@ void NavigateAction::cancel()
 
 void NavigateAction::start(GoalHandle &goal_handle)
 {
-  
+  std::cout << "thread id for navigation" << std::this_thread::get_id() << std::endl;
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
   const forklift_interfaces::NavigatePath &plan = goal.path;
   ROS_INFO_STREAM_NAMED("navigate", "Received a new path:" << goal);
