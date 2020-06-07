@@ -59,8 +59,7 @@ NavigateAction::NavigateAction(const std::string &name,
 {
 }
 
-NavigateAction::~NavigateAction()
-{
+NavigateAction::~NavigateAction(){
 }
 
 void NavigateAction::reconfigure(
@@ -239,6 +238,7 @@ void NavigateAction::runNavigate()
       
       if (fabs(min_angle)<10.0) {
         path_segments_.front().checkpoints.front().node.spin_turn = -1;
+        ROS_INFO_STREAM_NAMED("navigate", "ignoring spin as the angle is less than 10 deg");
         action_state_ = NAVIGATE;
         return;
       }
@@ -319,7 +319,6 @@ void NavigateAction::actionExePathFeedback(
   }
 }
 
-
 int8_t NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoint& previous, 
   const forklift_interfaces::Checkpoint& current, const forklift_interfaces::Checkpoint& next)
 {
@@ -328,20 +327,17 @@ int8_t NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoin
     (current.pose.pose.position.x - previous.pose.pose.position.x));
 
   ROS_INFO("Initial orientation %f, initial angle: %f", initial_orientation, initial_slope);
-
   double orientation = tf2::getYaw(current.pose.pose.orientation);
   double slope = std::atan2((next.pose.pose.position.y - current.pose.pose.position.y), 
     (next.pose.pose.position.x - current.pose.pose.position.x));
 
   ROS_INFO("Next orientation %f, Next angle: %f", orientation, slope);
-
   // check if its straight line segment
   if (std::abs(angles::shortest_angular_distance(initial_orientation, orientation)) < 3e-1) {
     ROS_INFO("Expecting straight line checkpoint: %d and checkpoint: %d", previous.node.node_id, current.node.node_id);
     return 1;
   }
-  // if it is not straight line, force spin turn
-  if (current.node.spin_turn > 0) {
+  if (current.node.spin_turn > 0) {  // if it is not straight line, force spin turn
     return 0;
   } else if (current.node.spin_turn < 0) {
     return -1;
@@ -364,8 +360,7 @@ bool NavigateAction::getSplitPath(
       std::vector<forklift_interfaces::NavigatePath> &result)
 {
   ROS_INFO_STREAM_NAMED("navigate","Splitting the path");
-  //check if incoming path is empty
-  if(plan.checkpoints.size()<1) {
+  if(plan.checkpoints.size()<1) {  //check if incoming path is empty
     return false;
   }
   forklift_interfaces::NavigatePath segment;
@@ -387,10 +382,8 @@ bool NavigateAction::getSplitPath(
         segment.checkpoints.push_back(plan.checkpoints[i]);
         result.push_back(segment);
         segment.checkpoints.clear();
-        
         forklift_interfaces::Checkpoint checkpoint = plan.checkpoints[i];
         checkpoint.node.spin_turn = 1;
-        
         segment.checkpoints.push_back(checkpoint);
       } else if (smooth_turn < 0) {
         ROS_INFO_STREAM_NAMED("navigate", "Terminating as the spin turn flag is set to -1");
@@ -420,10 +413,9 @@ void NavigateAction::actionSpinTurnDone(
     const actionlib::SimpleClientGoalState &state,
     const aifl_msg::SpinTurnResultConstPtr &result_ptr)
 {
-  action_state_ =  FAILED;
+  action_state_ = FAILED;
   ROS_INFO_STREAM_NAMED("navigate", "Action \"spin_turn\" finished.");
   const aifl_msg::SpinTurnResult& result = *(result_ptr.get());
-
   if(!(state == actionlib::SimpleClientGoalState::SUCCEEDED)) {
     ROS_INFO_STREAM_NAMED("navigate", "Action \"spin_turn\" did not succeed, retrying...");
     action_state_ = SPIN_TURN;
@@ -434,7 +426,6 @@ void NavigateAction::actionSpinTurnDone(
       navigate_result.status = forklift_interfaces::NavigateResult::SPIN_FAILURE;
       navigate_result.remarks = "Spin turn failed!";
       goal_handle_.setAborted(navigate_result, state.getText());
-
     } else {
       ROS_INFO_STREAM_NAMED("navigate", "Action \"spin_turn\" completed successfully");
       action_state_ = NAVIGATE;
@@ -446,13 +437,10 @@ void NavigateAction::actionExePathDone(
     const actionlib::SimpleClientGoalState &state,
     const mbf_msgs::ExePathResultConstPtr &result_ptr)
 {
-  action_state_ = FAILED;
   ROS_INFO_STREAM_NAMED("navigate", "Action \"exe_path\" finished.");
-
   const mbf_msgs::ExePathResult& result = *(result_ptr.get());
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle_.getGoal().get());
   forklift_interfaces::NavigateResult navigate_result;
-
   navigate_result.status = result.status;
   navigate_result.remarks = result.remarks;
   navigate_result.dist_to_goal = result.dist_to_goal;
@@ -468,12 +456,11 @@ void NavigateAction::actionExePathDone(
         const auto orientation = path_segments_.front().checkpoints.back().pose.pose.orientation;
         geometry_msgs::PoseStamped robot_pose;
         robot_info_.getRobotPose(robot_pose);        
-        double yaw_goal = getYaw(orientation);
-        
+        double yaw_goal = getYaw(orientation);   
         ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << getYaw(robot_pose.pose.orientation));
         action_state_ = SPIN_TURN;   //set state to execute spin
         spin_turn_goal_.angle = yaw_goal;     
-      } else {
+      } else if (!path_segments_.empty()) {
         action_state_ = NAVIGATE;
       }
       if(path_segments_.empty() && action_state_ != SPIN_ACTIVE) {
@@ -487,6 +474,7 @@ void NavigateAction::actionExePathDone(
       break;
 
     case actionlib::SimpleClientGoalState::ABORTED:
+      action_state_ = FAILED;
       switch (result.status)
       {
         case mbf_msgs::ExePathResult::INVALID_PATH:
@@ -503,28 +491,10 @@ void NavigateAction::actionExePathDone(
           goal_handle_.setAborted(navigate_result, state.getText());
       }
       break;
-    case actionlib::SimpleClientGoalState::PREEMPTED:
-      // action was preempted successfully!
-      ROS_INFO_STREAM_NAMED("navigate", "The action \""
-          << "exe_path" << "\" was preempted successfully!");
-      // TODO
-      break;
-    case actionlib::SimpleClientGoalState::RECALLED:
-      ROS_INFO_STREAM_NAMED("navigate", "The action \""
-          << "exe_path" << "\" was recalled!");
-      // TODO
-      break;
-    case actionlib::SimpleClientGoalState::REJECTED:
-      ROS_INFO_STREAM_NAMED("navigate", "The action \""
-          << "exe_path" << "\" was rejected!");
-      // TODO
-      break;
-    case actionlib::SimpleClientGoalState::LOST:
-      // TODO
-      break;
     default:
-      ROS_FATAL_STREAM_NAMED("navigate",
-                             "Reached unreachable case! Unknown SimpleActionServer state!");
+      action_state_ = FAILED;
+      ROS_ERROR_STREAM_NAMED("navigate",
+                             "Current state: " << state.toString());
       goal_handle_.setAborted();
       break;
   }
