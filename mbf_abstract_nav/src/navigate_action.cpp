@@ -408,7 +408,6 @@ void NavigateAction::actionSpinTurnDone(
     const actionlib::SimpleClientGoalState &state,
     const aifl_msg::SpinTurnResultConstPtr &result_ptr)
 {
-  action_state_ = FAILED;
   ROS_INFO_STREAM_NAMED("navigate", "Action \"spin_turn\" finished.");
   const aifl_msg::SpinTurnResult& result = *(result_ptr.get());
   if(!(state == actionlib::SimpleClientGoalState::SUCCEEDED)) {
@@ -421,6 +420,7 @@ void NavigateAction::actionSpinTurnDone(
       navigate_result.status = forklift_interfaces::NavigateResult::SPIN_FAILURE;
       navigate_result.remarks = "Spin turn failed!";
       goal_handle_.setAborted(navigate_result, state.getText());
+      action_state_ = FAILED;
     } else {
       ROS_INFO_STREAM_NAMED("navigate", "Action \"spin_turn\" completed successfully");
       action_state_ = NAVIGATE;
