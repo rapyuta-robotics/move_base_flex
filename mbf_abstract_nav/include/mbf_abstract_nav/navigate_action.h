@@ -52,6 +52,9 @@
 #include <forklift_interfaces/Checkpoint.h>
 #include <aifl_msg/SpinTurnAction.h>
 
+#include <tf2/utils.h>
+#include <angles/angles.h>
+
 #include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/robot_information.h"
 

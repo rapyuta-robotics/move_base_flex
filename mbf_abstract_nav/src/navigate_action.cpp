@@ -39,8 +39,6 @@
  */
 
 #include <mbf_utility/navigation_utility.h>
-#include <tf2/utils.h>
-#include <angles/angles.h>
 
 #include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/navigate_action.h"
