@@ -101,7 +101,6 @@ void NavigateAction::start(GoalHandle &goal_handle)
   goal_handle_ = goal_handle;
 
   ROS_INFO_STREAM_NAMED("navigate", "Start action "  << "navigate");
-
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
   const forklift_interfaces::NavigatePath &plan = goal.path;
   forklift_interfaces::NavigateResult navigate_result;
@@ -110,7 +109,6 @@ void NavigateAction::start(GoalHandle &goal_handle)
   ros::Duration connection_timeout(1.0);
   last_oscillation_reset_ = ros::Time::now();
   path_segments_.clear();
-
 
   geometry_msgs::PoseStamped robot_pose;
   // get the current robot pose only at the beginning, as exe_path will keep updating it as we move
@@ -122,7 +120,6 @@ void NavigateAction::start(GoalHandle &goal_handle)
     goal_handle.setAborted(navigate_result, navigate_result.remarks);
     return;
   }
-
   // wait for server connections
   if (!action_client_exe_path_.waitForServer(connection_timeout) ||
       !action_client_spin_turn_.waitForServer(connection_timeout)) {
@@ -132,10 +129,8 @@ void NavigateAction::start(GoalHandle &goal_handle)
     goal_handle.setAborted(navigate_result, navigate_result.remarks);
     return;
   }
-
   // call function to split path between spin turns 
   bool split_result = getSplitPath(plan, path_segments_);
-
   if(!split_result) {
     ROS_INFO_STREAM_NAMED("navigate", "Path provided was empty or invalid!");
     navigate_result.remarks = "Empty path provided!";
@@ -143,11 +138,9 @@ void NavigateAction::start(GoalHandle &goal_handle)
     goal_handle.setAborted(navigate_result, navigate_result.remarks);
     return;
   }
-
   // start navigating with the split path
   action_state_ = NAVIGATE;
   startNavigate();
-
   // double check if the plan request has 
   if (action_state_ == SUCCEEDED)
   {
@@ -174,7 +167,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
     }
   }
   else {
-    ROS_INFO_STREAM_NAMED("navigate", "Navigation failed to reach the goal..!!!!");
+    ROS_INFO_STREAM_NAMED("navigate", "Navigation failed to reach the goal..!!!!" << action_state_);
   }
 }
 
@@ -211,16 +204,16 @@ void NavigateAction::startNavigate()
         /* code */
         break;
       case EXE_PATH_ACTIVE:
-        ROS_INFO_STREAM_NAMED("navigate", "Navigation active");
+        //ROS_INFO_STREAM_NAMED("navigate", "Navigation active");
         break;
       case SPIN_ACTIVE:
-        ROS_INFO_STREAM_NAMED("navigate", "Spin turn active");
+        ROS_INFO_STREAM_THROTTLE_NAMED(1, "navigate", "Spin turn active");
         if(spin_turn_goal_timer_ + spin_turn_timeout_ < ros::Time::now()) {
           ROS_INFO_STREAM_NAMED("navigate", "Spin turn server did not respond for more than 120s");
         }
         break;
       default:
-        ROS_INFO_STREAM_NAMED("navigate", "Currently in navigation state>: " << action_state_);
+        ROS_INFO_STREAM_THROTTLE_NAMED(1, "navigate", "Currently in navigation state>: " << action_state_);
     }
     ros::spinOnce();
     ros::Duration(0.1).sleep();
@@ -262,8 +255,9 @@ void NavigateAction::runNavigate()
       return;
     }
   } else {
-    ROS_INFO("Empty path but spin turn is active");
+    ROS_INFO_STREAM_NAMED("navigate", "Empty path but spin turn is active");
     if (action_state_ != SPIN_ACTIVE) {
+      ROS_INFO_STREAM_NAMED("navigate", "runNavigate(): empty path and spin turn not active: : "<< action_state_);
       action_state_ = SUCCEEDED;
     }
     return;
@@ -321,7 +315,6 @@ void NavigateAction::actionExePathFeedback(
       navigate_result.angle_to_goal = navigate_feedback_.angle_to_goal;
       navigate_result.dist_to_goal = navigate_feedback_.dist_to_goal;
       goal_handle_.setAborted(navigate_result, navigate_result.remarks);
-
     }
   }
 }
@@ -347,21 +340,17 @@ int8_t NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoin
     ROS_INFO("Expecting straight line checkpoint: %d and checkpoint: %d", previous.node.node_id, current.node.node_id);
     return 1;
   }
-
   // if it is not straight line, force spin turn
   if (current.node.spin_turn > 0) {
     return 0;
-  } 
-  else if (current.node.spin_turn < 0) {
+  } else if (current.node.spin_turn < 0) {
     return -1;
   }
-
   // check if robot is facing forwards in both the segments
   if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope)) < 3e-1) &&
     (std::abs(angles::shortest_angular_distance(orientation, slope)) < 3e-1)) {
       return 1;
   }
-  
   // check if robot is facing backwards in both the segments
   if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope+M_PI)) < 3e-1) &&
     (std::abs(angles::shortest_angular_distance(orientation, slope+M_PI)) < 3e-1)) {
@@ -374,13 +363,11 @@ bool NavigateAction::getSplitPath(
       const forklift_interfaces::NavigatePath &plan,
       std::vector<forklift_interfaces::NavigatePath> &result)
 {
-
   ROS_INFO_STREAM_NAMED("navigate","Splitting the path");
   //check if incoming path is empty
   if(plan.checkpoints.size()<1) {
     return false;
   }
-  
   forklift_interfaces::NavigatePath segment;
   for (size_t i = 0 ; i < plan.checkpoints.size(); i++) {
     segment.header = plan.header;
@@ -419,7 +406,6 @@ bool NavigateAction::getSplitPath(
       segment.checkpoints.clear();
     }
   }
-
   for(const auto& segment : result) {
     ROS_INFO_STREAM_NAMED("navigate","Split segments:");
     for (const auto& point : segment.checkpoints) {
@@ -491,6 +477,7 @@ void NavigateAction::actionExePathDone(
         action_state_ = NAVIGATE;
       }
       if(path_segments_.empty() && action_state_ != SPIN_ACTIVE) {
+        ROS_INFO_STREAM_NAMED("navigate", "Succeeded because all segments completed" << action_state_);
         action_state_ = SUCCEEDED;
         return;
       }
@@ -527,17 +514,14 @@ void NavigateAction::actionExePathDone(
           << "exe_path" << "\" was recalled!");
       // TODO
       break;
-
     case actionlib::SimpleClientGoalState::REJECTED:
       ROS_INFO_STREAM_NAMED("navigate", "The action \""
           << "exe_path" << "\" was rejected!");
       // TODO
       break;
-
     case actionlib::SimpleClientGoalState::LOST:
       // TODO
       break;
-
     default:
       ROS_FATAL_STREAM_NAMED("navigate",
                              "Reached unreachable case! Unknown SimpleActionServer state!");
