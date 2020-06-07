@@ -66,8 +66,6 @@ class NavigateAction
   //! Action clients for the Navigate action
   typedef actionlib::SimpleActionClient<mbf_msgs::ExePathAction> ActionClientExePath;
   typedef actionlib::SimpleActionClient<aifl_msg::SpinTurnAction> ActionClientSpinTurn;
-
-
   typedef actionlib::ActionServer<forklift_interfaces::NavigateAction>::GoalHandle GoalHandle;
 
   NavigateAction(const std::string &name, const RobotInformation &robot_info);
@@ -114,10 +112,9 @@ class NavigateAction
       const actionlib::SimpleClientGoalState &state,
       const aifl_msg::SpinTurnResultConstPtr &result);
   
-  double getYaw(geometry_msgs::Quaternion orientation);
-  
-
-
+  double getYaw(geometry_msgs::Quaternion orientation) {
+    return tf2::getYaw(orientation)*180/M_PI;
+  };
   mbf_msgs::ExePathGoal exe_path_goal_;
   forklift_interfaces::NavigatePath get_path_goal_;
   aifl_msg::SpinTurnGoal spin_turn_goal_;

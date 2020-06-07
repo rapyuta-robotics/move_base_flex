@@ -263,8 +263,11 @@ void NavigateAction::runNavigate()
       action_state_ = EXE_PATH;
       return;
     }
-  } else {    
-    action_state_ = SUCCEEDED;
+  } else {
+    ROS_INFO("Empty path but spin turn is active");
+    if (action_state_ != SPIN_ACTIVE) {
+      action_state_ = SUCCEEDED;
+    }
     return;
   } 
 }
@@ -426,7 +429,6 @@ bool NavigateAction::getSplitPath(
           "spin turn:" << static_cast<int>(point.node.spin_turn));
     }
   }
-
   return true;
 }
 
@@ -477,9 +479,8 @@ void NavigateAction::actionExePathDone(
   switch (state.state_)
   {
     case actionlib::SimpleClientGoalState::SUCCEEDED:
-
       // check if we need a spin turn at the last checkpoint
-      if(path_segments_.front().checkpoints.back().node.spin_turn >= 0) {
+      if(!path_segments_.empty() && path_segments_.front().checkpoints.back().node.spin_turn >= 0) {
         const auto orientation = path_segments_.front().checkpoints.back().pose.pose.orientation;
         geometry_msgs::PoseStamped robot_pose;
         robot_info_.getRobotPose(robot_pose);        
@@ -546,10 +547,5 @@ void NavigateAction::actionExePathDone(
       break;
   }
   ROS_INFO("After exe_path, action_state tranisitioning to %d", action_state_);
-}
-
-double NavigateAction::getYaw(geometry_msgs::Quaternion orientation)
-{
-    return tf2::getYaw(orientation)*180/M_PI;
 }
 } /* namespace mbf_abstract_nav */
