@@ -125,8 +125,10 @@ class NavigateAction
 
   geometry_msgs::PoseStamped last_oscillation_pose_;
   ros::Time last_oscillation_reset_;
+  ros::Time spin_turn_goal_timer_;
 
   ros::Duration oscillation_timeout_;
+  ros::Duration spin_turn_timeout_;
 
   std::vector<forklift_interfaces::NavigatePath> path_segments_;
 

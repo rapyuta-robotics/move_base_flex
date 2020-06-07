@@ -69,20 +69,18 @@ void NavigateAction::reconfigure(
     mbf_abstract_nav::MoveBaseFlexConfig &config, uint32_t level)
 {
   oscillation_timeout_ = ros::Duration(config.oscillation_timeout);
+  spin_turn_timeout_ = ros::Duration(120.0);//ros::Duration(config.spin_turn_timeout);
   oscillation_distance_ = config.oscillation_distance;
 }
 
 void NavigateAction::cancel()
 {
   action_state_ = CANCELED;
-
   ROS_INFO_STREAM_NAMED ("navigate", "Cancel called for navigate");
   goal_handle_.setCanceled();
-
   if(action_state_ == EXE_PATH_ACTIVE && !action_client_exe_path_.getState().isDone()) {
     action_client_exe_path_.cancelGoal();
   }
-
   if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone()) {
     action_client_spin_turn_.cancelGoal();
   }
@@ -184,40 +182,47 @@ void NavigateAction::start(GoalHandle &goal_handle)
 
 void NavigateAction::startNavigate()
 {
-  while (action_state_ != SUCCEEDED && action_state_ != FAILED && action_state_ != CANCELED)
-  {
-    switch (action_state_)
-    {
-    case NAVIGATE:
-      // state for executing next segment in the plan
-      runNavigate();
-      break;
-    case EXE_PATH:
-      // state for executing current segment
-      ROS_INFO_STREAM_NAMED("navigate", "Sending goal to \"exe_path\" and waiting for server to accept the goal");
-      last_oscillation_reset_ = ros::Time::now(); // important to reset the oscillation
-      action_client_exe_path_.sendGoal(
+  while (action_state_ != SUCCEEDED && action_state_ != FAILED && action_state_ != CANCELED) {
+    switch (action_state_) {
+      case NAVIGATE:
+        // state for executing next segment in the plan
+        runNavigate();
+        break;
+      case EXE_PATH:
+        // state for executing current segment
+        ROS_INFO_STREAM_NAMED("navigate", "Sending goal to \"exe_path\" and waiting for server to accept the goal");
+        last_oscillation_reset_ = ros::Time::now(); // important to reset the oscillation
+        action_client_exe_path_.sendGoal(
           exe_path_goal_,
           boost::bind(&NavigateAction::actionExePathDone, this, _1, _2),
           boost::bind(&NavigateAction::actionExePathActive, this),
           boost::bind(&NavigateAction::actionExePathFeedback, this, _1));
-      action_state_ = EXE_PATH_ACTIVE;
-      break;
-    case SPIN_TURN:
-      // state for executing spin turn
-      ROS_INFO_STREAM_NAMED("navigate", "Sending goal to \"spin_turn\" and waiting for server to accept the goal");
-      action_client_spin_turn_.sendGoal(
-        spin_turn_goal_,
-        boost::bind(&NavigateAction::actionSpinTurnDone, this, _1, _2),
-        boost::bind(&NavigateAction::actionSpinTurnActive, this));
-      action_state_ = SPIN_ACTIVE;
-      break;
-    case OSCILLATING:
-      /* code */
-      break; 
-    
-    default:
-      ROS_INFO_STREAM_NAMED("navigate", "Currently in navigation state>: " << action_state_);
+        action_state_ = EXE_PATH_ACTIVE;
+        break;
+      case SPIN_TURN:
+        // state for executing spin turn
+        ROS_INFO_STREAM_NAMED("navigate", "Sending goal to \"spin_turn\" and waiting for server to accept the goal");
+        spin_turn_goal_timer_ = ros::Time::now();
+        action_client_spin_turn_.sendGoal(
+          spin_turn_goal_,
+          boost::bind(&NavigateAction::actionSpinTurnDone, this, _1, _2),
+          boost::bind(&NavigateAction::actionSpinTurnActive, this));
+        action_state_ = SPIN_ACTIVE;
+        break;
+      case OSCILLATING:
+        /* code */
+        break;
+      case EXE_PATH_ACTIVE:
+        ROS_INFO_STREAM_NAMED("navigate", "Navigation active");
+        break;
+      case SPIN_ACTIVE:
+        ROS_INFO_STREAM_NAMED("navigate", "Spin turn active");
+        if(spin_turn_goal_timer_ + spin_turn_timeout_ < ros::Time::now()) {
+          ROS_INFO_STREAM_NAMED("navigate", "Spin turn server did not respond for more than 120s");
+        }
+        break;
+      default:
+        ROS_INFO_STREAM_NAMED("navigate", "Currently in navigation state>: " << action_state_);
     }
     ros::spinOnce();
     ros::Duration(0.1).sleep();
@@ -226,11 +231,8 @@ void NavigateAction::startNavigate()
 
 void NavigateAction::runNavigate()
 {
-  
   ROS_INFO_STREAM_NAMED("navigate", "Segments remaning: " << path_segments_.size());
-
   if(!path_segments_.empty()) {
-
     ROS_INFO_STREAM_NAMED("navigate","Spin turn: "<< static_cast<int>(path_segments_.front().checkpoints.front().node.spin_turn));
     //check if the first checkpoint needs spin turn
     if(path_segments_.front().checkpoints.front().node.spin_turn >=0) {
@@ -238,12 +240,10 @@ void NavigateAction::runNavigate()
       geometry_msgs::PoseStamped robot_pose;
       robot_info_.getRobotPose(robot_pose);  
       double min_angle = mbf_utility::angle(robot_pose , path_segments_.front().checkpoints.front().pose);
-      min_angle = min_angle * 180 / M_PI ;
-      
+      min_angle = min_angle * 180 / M_PI ;      
       double yaw_goal = getYaw(orientation);
-      double curr_yaw = getYaw(robot_pose.pose.orientation);
-      
-      ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << curr_yaw);
+
+      ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << getYaw(robot_pose.pose.orientation));
       ROS_INFO_STREAM("min_angle: " << min_angle);
       
       if (fabs(min_angle)<10.0) {
@@ -251,7 +251,6 @@ void NavigateAction::runNavigate()
         action_state_ = NAVIGATE;
         return;
       }
-
       spin_turn_goal_.angle = yaw_goal;
       action_state_ = SPIN_TURN;
       path_segments_.front().checkpoints.front().node.spin_turn = -1;    
@@ -388,7 +387,7 @@ bool NavigateAction::getSplitPath(
     segment.yaw_goal_tolerance = plan.xy_goal_tolerance;
     if (i<1) {
       segment.checkpoints.push_back(plan.checkpoints[i]);
-      if (plan.checkpoints.size()==1) {
+      if (plan.checkpoints.size() == 1) {
         result.push_back(segment);
         ROS_INFO_STREAM_NAMED("navigate", "Single checkpoint:");
         segment.checkpoints.clear();
@@ -442,8 +441,7 @@ void NavigateAction::actionSpinTurnDone(
   if(!(state == actionlib::SimpleClientGoalState::SUCCEEDED)) {
     ROS_INFO_STREAM_NAMED("navigate", "Action \"spin_turn\" did not succeed, retrying...");
     action_state_ = SPIN_TURN;
-  }
-  else {
+  } else {
     if(result.status != 2) {
       ROS_INFO_STREAM_NAMED("navigate", "Action \"spin_turn\" failed :" << result);
       forklift_interfaces::NavigateResult navigate_result;
@@ -476,7 +474,6 @@ void NavigateAction::actionExePathDone(
   navigate_result.final_pose = result.final_pose;
 
   ROS_INFO_STREAM_NAMED("exe_path", "Current state:" << state.toString());
-
   switch (state.state_)
   {
     case actionlib::SimpleClientGoalState::SUCCEEDED:
@@ -485,28 +482,22 @@ void NavigateAction::actionExePathDone(
       if(path_segments_.front().checkpoints.back().node.spin_turn >= 0) {
         const auto orientation = path_segments_.front().checkpoints.back().pose.pose.orientation;
         geometry_msgs::PoseStamped robot_pose;
-        
-        robot_info_.getRobotPose(robot_pose);
-        
-        double min_angle = mbf_utility::angle(robot_pose , path_segments_.front().checkpoints.back().pose);
-        min_angle = min_angle * 180 / M_PI ;
-        
+        robot_info_.getRobotPose(robot_pose);        
         double yaw_goal = getYaw(orientation);
-        double curr_yaw = getYaw(robot_pose.pose.orientation);
         
-        ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << curr_yaw);
-        ROS_INFO_STREAM("min_angle: " << min_angle);
-        
+        ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << getYaw(robot_pose.pose.orientation));
         action_state_ = SPIN_TURN;   //set state to execute spin
-        spin_turn_goal_.angle = yaw_goal;        
+        spin_turn_goal_.angle = yaw_goal;     
       } else {
         action_state_ = NAVIGATE;
       }
-      if(path_segments_.empty()) {
+      if(path_segments_.empty() && action_state_ != SPIN_ACTIVE) {
         action_state_ = SUCCEEDED;
         return;
       }
-      path_segments_.erase(path_segments_.begin()); //erase the done segment
+      if (!path_segments_.empty) {
+        path_segments_.erase(path_segments_.begin()); //erase the done segment
+      }
       break;
 
     case actionlib::SimpleClientGoalState::ABORTED:

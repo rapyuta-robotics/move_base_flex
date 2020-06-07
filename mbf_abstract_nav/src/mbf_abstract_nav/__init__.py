@@ -36,5 +36,7 @@ def add_mbf_abstract_nav_params(gen):
 
     gen.add("oscillation_timeout", double_t, 0,
             "How long in seconds to allow for oscillation before executing recovery behaviors.", 60, 0, 60)
+    gen.add("spin_turn_timeout", double_t, 0,
+            "Timeout for spin turn server to respond", 120, 0, 120)
     gen.add("oscillation_distance", double_t, 0,
             "How far in meters the robot must move to be considered not to be oscillating.", 0.5, 0, 10)
