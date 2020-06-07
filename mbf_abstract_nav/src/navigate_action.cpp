@@ -86,14 +86,10 @@ void NavigateAction::cancel()
 void NavigateAction::start(GoalHandle &goal_handle)
 {
   ROS_INFO_STREAM_NAMED("navigate", "Received a new path");
-  if (action_state_ == SPIN_ACTIVE)
+  if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone())
   {
     ROS_INFO_STREAM_NAMED("navigate", "Received a new path when spin turn is active, waiting for spin turn to complete");
-    if(!action_client_spin_turn_.getState().isDone())
-    {
-      action_client_spin_turn_.waitForResult(ros::Duration(60.0));
-      //TODO: Check for result
-    }
+    action_client_spin_turn_.waitForResult(ros::Duration(60.0));
   }
   action_state_ = SPLIT_PATH;
   goal_handle.setAccepted();
@@ -132,15 +128,13 @@ void NavigateAction::start(GoalHandle &goal_handle)
   bool split_result = getSplitPath(plan, path_segments_);
   if(!split_result) {
     ROS_INFO_STREAM_NAMED("navigate", "Path provided was empty or invalid!");
-    navigate_result.remarks = "Empty path provided!";
+    navigate_result.remarks = "Empty or inavalid path was provided!";
     navigate_result.status = forklift_interfaces::NavigateResult::INVALID_PATH;
     goal_handle.setAborted(navigate_result, navigate_result.remarks);
     return;
   }
-  // start navigating with the split path
-  action_state_ = NAVIGATE;
+  action_state_ = NAVIGATE; // start navigating with the split path
   startNavigate();
-  // double check if the plan request has 
   if (action_state_ == SUCCEEDED)
   {
     geometry_msgs::PoseStamped robot_pose;
@@ -156,16 +150,14 @@ void NavigateAction::start(GoalHandle &goal_handle)
       navigate_result.remarks = "Action navigate completed successfully!";
       navigate_result.final_pose = robot_pose;
       goal_handle.setSucceeded(navigate_result, navigate_result.remarks);
-    }
-    else {
+    } else {
       ROS_INFO_STREAM_NAMED("navigate", "Plan failed as the robot did not reach with desired goal tolerance");
       navigate_result.status = forklift_interfaces::NavigateResult::MISSED_GOAL;
       navigate_result.remarks = "Requested pose in the plan was not reached";
       navigate_result.final_pose = robot_pose;
       goal_handle.setAborted(navigate_result, navigate_result.remarks);
     }
-  }
-  else {
+  } else {
     ROS_INFO_STREAM_NAMED("navigate", "Navigation failed to reach the goal..!!!!" << action_state_);
   }
 }
