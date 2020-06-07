@@ -75,10 +75,10 @@ void NavigateAction::cancel()
   action_state_ = CANCELED;
   ROS_INFO_STREAM_NAMED ("navigate", "Cancel called for navigate");
   goal_handle_.setCanceled();
-  if(action_state_ == EXE_PATH_ACTIVE && !action_client_exe_path_.getState().isDone()) {
+  if (!action_client_exe_path_.getState().isDone()) {
     action_client_exe_path_.cancelGoal();
   }
-  if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone()) {
+  if (!action_client_spin_turn_.getState().isDone()) {
     action_client_spin_turn_.cancelGoal();
   }
 }
@@ -88,7 +88,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
   
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
   const forklift_interfaces::NavigatePath &plan = goal.path;
-  ROS_INFO_STREAM_NAMED("navigate", "Received a new path:" << plan);
+  ROS_INFO_STREAM_NAMED("navigate", "Received a new path:" << goal);
   if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone())
   {
     ROS_INFO_STREAM_NAMED("navigate", "Received a new path when spin turn is active, waiting for spin turn to complete");
@@ -114,6 +114,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
     navigate_result.remarks = "Could not get the current robot pose!";
     navigate_result.status = forklift_interfaces::NavigateResult::TF_ERROR;
     goal_handle.setAborted(navigate_result, navigate_result.remarks);
+    action_state_ = FAILED;
     return;
   }
   // wait for server connections
@@ -123,6 +124,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
     navigate_result.status = forklift_interfaces::NavigateResult::INTERNAL_ERROR;
     navigate_result.remarks = "Could not connect to the navigate actions!";
     goal_handle.setAborted(navigate_result, navigate_result.remarks);
+    action_state_ = FAILED;
     return;
   }
   // call function to split path between spin turns 
@@ -132,6 +134,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
     navigate_result.remarks = "Empty or invalid path was provided!";
     navigate_result.status = forklift_interfaces::NavigateResult::INVALID_PATH;
     goal_handle.setAborted(navigate_result, navigate_result.remarks);
+    action_state_ = FAILED;
     return;
   }
   action_state_ = NAVIGATE; // start navigating with the split path
@@ -151,12 +154,14 @@ void NavigateAction::start(GoalHandle &goal_handle)
       navigate_result.remarks = "Action navigate completed successfully!";
       navigate_result.final_pose = robot_pose;
       goal_handle.setSucceeded(navigate_result, navigate_result.remarks);
+      action_state_ = IDLE;
     } else {
       ROS_INFO_STREAM_NAMED("navigate", "Plan failed as the robot did not reach with desired goal tolerance");
       navigate_result.status = forklift_interfaces::NavigateResult::MISSED_GOAL;
       navigate_result.remarks = "Requested pose in the plan was not reached";
       navigate_result.final_pose = robot_pose;
       goal_handle.setAborted(navigate_result, navigate_result.remarks);
+      action_state_ = FAILED;
     }
   } else {
     ROS_INFO_STREAM_NAMED("navigate", "Navigation failed to reach the goal..!!!!" << action_state_);
