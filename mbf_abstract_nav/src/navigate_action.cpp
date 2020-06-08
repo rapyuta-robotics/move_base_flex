@@ -54,10 +54,9 @@ NavigateAction::NavigateAction(const std::string &name,
      action_client_spin_turn_("spin_turn"),
      oscillation_timeout_(0),
      oscillation_distance_(0),
-     action_state_(IDLE),
-     replanning_(false),
-     replanning_rate_(1.0)
+     action_state_(IDLE)
 {
+
 }
 
 NavigateAction::~NavigateAction(){
@@ -90,13 +89,15 @@ void NavigateAction::start(GoalHandle &goal_handle)
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
   const forklift_interfaces::NavigatePath &plan = goal.path;
   ROS_INFO_STREAM_NAMED("navigate", "Received a new path:" << goal);
-  goal_handle.setAccepted();
-  goal_handle_ = goal_handle;
   
   if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone()) {
     ROS_INFO_STREAM_NAMED("navigate", "Received a new path when spin turn is active, waiting for spin turn to complete");
     action_client_spin_turn_.waitForResult(ros::Duration(60.0));
   }
+  goal_handle.setAccepted();
+  goal_handles_.push_back(goal_handle);
+  goal_handle_ = goal_handle;
+  std::string current_goal = goal_handle_.getGoalID().id;
   action_state_ = SPLIT_PATH;
   ROS_INFO_STREAM_NAMED("navigate", "Start action "  << "navigate");
   forklift_interfaces::NavigateResult navigate_result;
@@ -138,23 +139,25 @@ void NavigateAction::start(GoalHandle &goal_handle)
   }
   action_state_ = NAVIGATE; // start navigating with the split path
   startNavigate();
-  if (action_state_ == SUCCEEDED) {
+  std::cout << goal_handles_.size() << std::endl;
+  if ((action_state_ == SUCCEEDED) && (goal_handle.getGoalID().id == goal_handles_.back().getGoalID().id)) {
     geometry_msgs::PoseStamped robot_pose;
     robot_info_.getRobotPose(robot_pose);
+
     navigate_result.angle_to_goal = mbf_utility::angle(robot_pose, goal.path.checkpoints.back().pose);
     navigate_result.dist_to_goal = mbf_utility::distance(robot_pose, goal.path.checkpoints.back().pose);
     ROS_INFO("Succeeded from navigation, double checking for orientation from mbf with \
-     dist_to_goal: %.4f, angle_to_goal: %.4f", navigate_result.dist_to_goal, navigate_result.angle_to_goal);
+     dist_to_goal: %.4f, angle_to_goal: %.4f %s", navigate_result.dist_to_goal, navigate_result.angle_to_goal, current_goal.c_str());
     if ((navigate_result.dist_to_goal <= goal.path.xy_goal_tolerance || goal.path.xy_goal_tolerance <= 1e-5) 
       && (navigate_result.angle_to_goal <= goal.path.yaw_goal_tolerance || goal.path.yaw_goal_tolerance <= 1e-5)) {
-      ROS_INFO_STREAM_NAMED("navigate", "Plan complete with desired goal tolerance");
+      ROS_INFO_STREAM_NAMED("navigate", "Plan complete with desired goal tolerance" << current_goal);
       navigate_result.status = forklift_interfaces::NavigateResult::SUCCESS;
       navigate_result.remarks = "Action navigate completed successfully!";
       navigate_result.final_pose = robot_pose;
       goal_handle.setSucceeded(navigate_result, navigate_result.remarks);
       action_state_ = IDLE;
     } else {
-      ROS_INFO_STREAM_NAMED("navigate", "Plan failed as the robot did not reach with desired goal tolerance");
+      ROS_INFO_STREAM_NAMED("navigate", "Plan failed as the robot did not reach with desired goal tolerance" << current_goal);
       navigate_result.status = forklift_interfaces::NavigateResult::MISSED_GOAL;
       navigate_result.remarks = "Requested pose in the plan was not reached";
       navigate_result.final_pose = robot_pose;
@@ -162,7 +165,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
       action_state_ = FAILED;
     }
   } else {
-    ROS_INFO_STREAM_NAMED("navigate", "Navigation failed to reach the goal..!!!!" << action_state_);
+    //ROS_INFO_STREAM_NAMED("navigate", "Navigation failed to reach the goal..!!!!" << current_goal);
   }
 }
 

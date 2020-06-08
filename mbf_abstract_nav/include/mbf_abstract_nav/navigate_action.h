@@ -135,6 +135,7 @@ class NavigateAction
   double oscillation_distance_;
 
   GoalHandle goal_handle_;
+  std::vector<GoalHandle> goal_handles_;
 
   std::string name_;
 
@@ -150,14 +151,9 @@ class NavigateAction
   //! Action client used by the navigate action
   ActionClientSpinTurn action_client_spin_turn_;
 
-  bool replanning_;
-  ros::Rate replanning_rate_;
-  boost::mutex replanning_mtx_;
 
 
   forklift_interfaces::NavigateFeedback navigate_feedback_;
-
-
   enum NavigateActionState
   {
     SPIN_ACTIVE,
