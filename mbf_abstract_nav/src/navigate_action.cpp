@@ -87,7 +87,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
 {
   std::cout << "thread id for navigation" << std::this_thread::get_id() << std::endl;
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
-  const forklift_interfaces::NavigatePath &plan = goal.path;
+  plan_ = goal.path;
   ROS_INFO_STREAM_NAMED("navigate", "Received a new path:" << goal);
   
   if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone()) {
@@ -128,7 +128,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
     return;
   }
   // call function to split path between spin turns 
-  bool split_result = getSplitPath(plan, path_segments_);
+  bool split_result = getSplitPath(plan_, path_segments_);
   if(!split_result) {
     ROS_INFO_STREAM_NAMED("navigate", "Path provided was empty or invalid!");
     navigate_result.remarks = "Empty or invalid path was provided!";
@@ -225,7 +225,7 @@ void NavigateAction::runNavigate()
   if(!path_segments_.empty()) {
     ROS_INFO_STREAM_NAMED("navigate","Spin turn: "<< static_cast<int>(path_segments_.front().checkpoints.front().node.spin_turn));
     //check if the first checkpoint needs spin turn
-    if((path_segments_.size() > 1) && (path_segments_.front().checkpoints.front().node.spin_turn >=0)) {
+    if((plan_.checkpoints.size() > 1) && (path_segments_.front().checkpoints.front().node.spin_turn >=0)) {
       const auto orientation = path_segments_.front().checkpoints.front().pose.pose.orientation;
       geometry_msgs::PoseStamped robot_pose;
       robot_info_.getRobotPose(robot_pose);  
