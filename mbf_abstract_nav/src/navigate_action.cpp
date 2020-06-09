@@ -87,7 +87,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
 {
   std::cout << "thread id for navigation" << std::this_thread::get_id() << std::endl;
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
-  forklift_interfaces::NavigatePath& plan = goal.path;
+  const forklift_interfaces::NavigatePath& plan = goal.path;
   ROS_INFO_STREAM_NAMED("navigate", "Received a new path:" << goal);
   
   if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone()) {
