@@ -97,9 +97,9 @@ class NavigateAction
 
   void actionSpinTurnActive();
 
-  void startNavigate();
+  void startNavigate(const forklift_interfaces::NavigatePath& plan);
 
-  void runNavigate();
+  void runNavigate(const forklift_interfaces::NavigatePath& plan);
 
   void actionExePathDone(
       const actionlib::SimpleClientGoalState &state,
@@ -150,9 +150,6 @@ class NavigateAction
 
   //! Action client used by the navigate action
   ActionClientSpinTurn action_client_spin_turn_;
-
-  forklift_interfaces::NavigatePath plan_;
-
 
   forklift_interfaces::NavigateFeedback navigate_feedback_;
   enum NavigateActionState
