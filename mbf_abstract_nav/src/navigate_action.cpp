@@ -225,7 +225,7 @@ void NavigateAction::runNavigate()
   if(!path_segments_.empty()) {
     ROS_INFO_STREAM_NAMED("navigate","Spin turn: "<< static_cast<int>(path_segments_.front().checkpoints.front().node.spin_turn));
     //check if the first checkpoint needs spin turn
-    if(path_segments_.front().checkpoints.front().node.spin_turn >=0) {
+    if((path_segments_.size() > 1) && (path_segments_.front().checkpoints.front().node.spin_turn >=0)) {
       const auto orientation = path_segments_.front().checkpoints.front().pose.pose.orientation;
       geometry_msgs::PoseStamped robot_pose;
       robot_info_.getRobotPose(robot_pose);  
@@ -255,9 +255,9 @@ void NavigateAction::runNavigate()
       return;
     }
   } else {
-    ROS_INFO_STREAM_NAMED("navigate", "Empty path but spin turn is active");
+    ROS_INFO_STREAM_NAMED("navigate", "Path completed");
     if (action_state_ != SPIN_ACTIVE) {
-      ROS_INFO_STREAM_NAMED("navigate", "runNavigate(): empty path and spin turn not active: : "<< action_state_);
+      ROS_INFO_STREAM_NAMED("navigate", "runNavigate(): spin turn not active: : "<< action_state_);
       action_state_ = SUCCEEDED;
     }
     return;
@@ -455,7 +455,7 @@ void NavigateAction::actionExePathDone(
         double yaw_goal = getYaw(orientation);   
         ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << getYaw(robot_pose.pose.orientation));
         action_state_ = SPIN_TURN;   //set state to execute spin
-        spin_turn_goal_.angle = yaw_goal;     
+        spin_turn_goal_.angle = yaw_goal;
       } else if (!path_segments_.empty()) {
         action_state_ = NAVIGATE;
       }
