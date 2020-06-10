@@ -223,7 +223,7 @@ void NavigateAction::runNavigate(const forklift_interfaces::NavigatePath& plan)
   if(!path_segments_.empty()) {
     ROS_INFO_STREAM_NAMED("navigate","Spin turn: "<< static_cast<int>(path_segments_.front().checkpoints.front().node.spin_turn));
     //check if the first checkpoint needs spin turn
-    if((plan.checkpoints.size() == 1) && (path_segments_.front().checkpoints.front().node.spin_turn >= 0)) {
+    if((plan.checkpoints.size() > 1) && (path_segments_.front().checkpoints.front().node.spin_turn >= 0)) {
       const auto orientation = path_segments_.front().checkpoints.front().pose.pose.orientation;
       geometry_msgs::PoseStamped robot_pose;
       robot_info_.getRobotPose(robot_pose);  
