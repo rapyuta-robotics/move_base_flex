@@ -176,7 +176,7 @@ double distance(const geometry_msgs::PoseStamped &pose1, const geometry_msgs::Po
   const double dx = p1.x - p2.x;
   const double dy = p1.y - p2.y;
   const double dz = p1.z - p2.z;
-  return sqrt(dx * dx + dy * dy + dz * dz);
+  return sqrt(dx * dx + dy * dy);
 }
 
 double angle(const geometry_msgs::PoseStamped &pose1, const geometry_msgs::PoseStamped &pose2)
