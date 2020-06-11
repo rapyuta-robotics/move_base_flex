@@ -489,7 +489,8 @@ void NavigateAction::actionExePathDone(
     const actionlib::SimpleClientGoalState &state,
     const mbf_msgs::ExePathResultConstPtr &result_ptr)
 {
-  action_state_ = FAILED;
+
+  NavigateActionState action_state = FAILED;
   ROS_INFO_STREAM_NAMED("navigate", "Action \"exe_path\" finished.");
 
   const mbf_msgs::ExePathResult& result = *(result_ptr.get());
@@ -525,7 +526,7 @@ void NavigateAction::actionExePathDone(
         ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << curr_yaw);
         ROS_INFO_STREAM("min_angle: " << min_angle);
         
-        action_state_ = SPIN_TURN;   //set state to execute spin
+        action_state = SPIN_TURN;   //set state to execute spin
         spin_turn_goal_.angle = yaw_goal;
         
         //removing to achieve high tolearance at the goal and spin turn server should take care of the threshold!!
@@ -537,11 +538,11 @@ void NavigateAction::actionExePathDone(
       }
       else
       {
-        action_state_ = NAVIGATE;
+        action_state = NAVIGATE;
       }  
       if(path_segments_.empty())
       {
-        action_state_ = SUCCEEDED;
+        action_state = SUCCEEDED;
         return;
       }
       path_segments_.erase(path_segments_.begin()); //erase the done segment
@@ -597,6 +598,8 @@ void NavigateAction::actionExePathDone(
       goal_handle_.setAborted();
       break;
   }
+  action_state_ = action_state;
+  ROS_INFO("Updating current action state to %d after exe_path complete", action_state_);
 }
 
 double NavigateAction::getSpinAngle(geometry_msgs::Quaternion orientation)
