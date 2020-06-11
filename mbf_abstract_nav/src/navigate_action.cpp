@@ -93,7 +93,8 @@ void NavigateAction::start(GoalHandle &goal_handle)
   goal_handle.setAccepted();
   goal_handles_.push_back(goal_handle);
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
-  const forklift_interfaces::NavigatePath& plan = goal.path;
+  forklift_interfaces::NavigatePath plan = goal.path;
+  route_id_ = goal.route_id;
   ROS_INFO_STREAM_NAMED("navigate", "Received a new path:" << goal);
   goal_handle_ = goal_handle;
   std::string current_goal = goal_handle_.getGoalID().id;
@@ -277,13 +278,16 @@ void NavigateAction::actionExePathFeedback(
     const mbf_msgs::ExePathFeedbackConstPtr &feedback)
 {
   navigate_feedback_.status = feedback->status;
+  navigate_feedback_.route_id = route_id_;
   navigate_feedback_.remarks = feedback->remarks;
   navigate_feedback_.angle_to_goal = feedback->angle_to_goal;
   navigate_feedback_.dist_to_goal = feedback->dist_to_goal;
   navigate_feedback_.current_pose = feedback->current_pose;
   navigate_feedback_.velocity = feedback->velocity;
-  navigate_feedback_.last_checkpoint = feedback->last_checkpoint;
-  navigate_feedback_.target_checkpoint = feedback->target_checkpoint;
+  navigate_feedback_.last_checkpoint = feedback->last_checkpoint; //TODO: remove
+  navigate_feedback_.target_checkpoint = feedback->target_checkpoint; //TODO: remove
+  navigate_feedback_.target_index = feedback->target_checkpoint;
+  navigate_feedback_.last_index = feedback->last_checkpoint;
   robot_pose_ = feedback->current_pose;
   goal_handle_.publishFeedback(navigate_feedback_);
 
@@ -350,7 +354,7 @@ int8_t NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoin
 }
 
 bool NavigateAction::getSplitPath(
-      const forklift_interfaces::NavigatePath &plan,
+      forklift_interfaces::NavigatePath &plan,
       std::vector<forklift_interfaces::NavigatePath> &result)
 {
   ROS_INFO_STREAM_NAMED("navigate","Splitting the path");
@@ -365,6 +369,7 @@ bool NavigateAction::getSplitPath(
     segment.xy_goal_tolerance = plan.xy_goal_tolerance;
     segment.yaw_goal_tolerance = plan.xy_goal_tolerance;
     uint32_t node_id = plan.checkpoints[i].node.node_id;
+    plan.checkpoints[i].node.node_id = i+1;
     ROS_INFO_STREAM("Evaluating checkpoint: " << node_id);
     if (i<1) {
       segment.checkpoints.push_back(plan.checkpoints[i]);
@@ -464,6 +469,7 @@ void NavigateAction::actionExePathDone(
   const mbf_msgs::ExePathResult& result = *(result_ptr.get());
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle_.getGoal().get());
   forklift_interfaces::NavigateResult navigate_result;
+  navigate_result.route_id = route_id_;
   navigate_result.status = result.status;
   navigate_result.remarks = result.remarks;
   navigate_result.dist_to_goal = result.dist_to_goal;
