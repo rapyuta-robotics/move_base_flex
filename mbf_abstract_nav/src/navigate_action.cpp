@@ -138,7 +138,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
   }
   action_state_ = NAVIGATE; // start navigating with the split path
   startNavigate(plan);
-  std::cout << goal_handles_.size() << std::endl;
+  ROS_INFO_STREAM_NAMED("navigate","Accumulated goal handles: " << goal_handles_.size());
   if ((action_state_ == SUCCEEDED) && (goal_handle.getGoalID().id == goal_handles_.back().getGoalID().id)) {
     geometry_msgs::PoseStamped robot_pose;
     robot_info_.getRobotPose(robot_pose);
