@@ -365,11 +365,11 @@ bool NavigateAction::getSplitPath(
     segment.xy_goal_tolerance = plan.xy_goal_tolerance;
     segment.yaw_goal_tolerance = plan.xy_goal_tolerance;
     uint32_t node_id = plan.checkpoints[i].node.node_id;
-    node_ids.push_back(node_id);
     if (std::find(node_ids.begin(), node_ids.end(), node_id) != node_ids.end()) {
       ROS_WARN_STREAM_NAMED("navigate", "Loop detected, repeated node_id" << node_id);
       return false;
     }
+    node_ids.push_back(node_id);
     if (i<1) {
       segment.checkpoints.push_back(plan.checkpoints[i]);
       if (plan.checkpoints.size() == 1) {
