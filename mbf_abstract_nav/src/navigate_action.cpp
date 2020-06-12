@@ -40,6 +40,7 @@
 
 #include <mbf_utility/navigation_utility.h>
 #include <thread>
+#include <algorithm>
 
 #include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/navigate_action.h"
@@ -128,8 +129,8 @@ void NavigateAction::start(GoalHandle &goal_handle)
   // call function to split path between spin turns 
   bool split_result = getSplitPath(plan, path_segments_);
   if(!split_result) {
-    ROS_INFO_STREAM_NAMED("navigate", "Path provided was empty or invalid!");
-    navigate_result.remarks = "Empty or invalid path was provided!";
+    ROS_INFO_STREAM_NAMED("navigate", "Invalid path provided");
+    navigate_result.remarks = "Invalid path was requested to navigation";
     navigate_result.status = forklift_interfaces::NavigateResult::INVALID_PATH;
     goal_handle.setAborted(navigate_result, navigate_result.remarks);
     action_state_ = FAILED;
@@ -236,7 +237,7 @@ void NavigateAction::runNavigate(const forklift_interfaces::NavigatePath& plan)
       
       if (fabs(min_angle)<10.0) {
         path_segments_.front().checkpoints.front().node.spin_turn = -1;
-        ROS_INFO_STREAM_NAMED("navigate", "ignoring spin as the angle is less than 10 deg");
+        ROS_INFO_STREAM_NAMED("navigate", "ignoring spin as the angle is less than 10 deg: " << path_segments_.front().checkpoints.front().node.node_id);
         action_state_ = NAVIGATE;
         return;
       }
@@ -246,7 +247,7 @@ void NavigateAction::runNavigate(const forklift_interfaces::NavigatePath& plan)
       return;
     } else {
       for (const auto& point : path_segments_.front().checkpoints) {
-          ROS_INFO_STREAM_NAMED("navigate","["<< point.pose.pose.position.x << "," << point.pose.pose.position.y << "]");
+        ROS_INFO_STREAM_NAMED("navigate","["<< point.pose.pose.position.x << "," << point.pose.pose.position.y << "]");
       }
       exe_path_goal_.path = path_segments_.front();
       action_state_ = EXE_PATH;
@@ -319,7 +320,7 @@ int8_t NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoin
   double initial_orientation = tf2::getYaw(previous.pose.pose.orientation);
   double initial_slope = std::atan2((current.pose.pose.position.y - previous.pose.pose.position.y), 
     (current.pose.pose.position.x - previous.pose.pose.position.x));
-
+  ROS_INFO_STREAM("Evaluating checkpoint " << current.node.node_id);
   ROS_INFO("Initial orientation %f, initial angle: %f", initial_orientation, initial_slope);
   double orientation = tf2::getYaw(current.pose.pose.orientation);
   double slope = std::atan2((next.pose.pose.position.y - current.pose.pose.position.y), 
@@ -358,10 +359,16 @@ bool NavigateAction::getSplitPath(
     return false;
   }
   forklift_interfaces::NavigatePath segment;
+  std::vector<uint32_t> node_ids;
   for (size_t i = 0 ; i < plan.checkpoints.size(); i++) {
     segment.header = plan.header;
     segment.xy_goal_tolerance = plan.xy_goal_tolerance;
     segment.yaw_goal_tolerance = plan.xy_goal_tolerance;
+    node_ids.push_back(plan.node.node_ids);
+    if (std::find(node_ids.begin(), node_ids.end(), plan.checkpoint.node_id)!=node_ids.end()) {
+      ROS_WARN_STREAM_NAMED("navigate", "Loop detected, repeated node_id" << plan.checkpoint.node_id);
+      return false;
+    }
     if (i<1) {
       segment.checkpoints.push_back(plan.checkpoints[i]);
       if (plan.checkpoints.size() == 1) {
@@ -372,7 +379,7 @@ bool NavigateAction::getSplitPath(
       }
     } else if (i<plan.checkpoints.size()-1) {
       int8_t smooth_turn = isSmoothTurnPossible(plan.checkpoints[i-1], plan.checkpoints[i], plan.checkpoints[i+1]);
-      if( smooth_turn == 0){
+      if( smooth_turn == 0) {
         segment.checkpoints.push_back(plan.checkpoints[i]);
         result.push_back(segment);
         segment.checkpoints.clear();
