@@ -365,18 +365,18 @@ bool NavigateAction::getSplitPath(
     segment.xy_goal_tolerance = plan.xy_goal_tolerance;
     segment.yaw_goal_tolerance = plan.xy_goal_tolerance;
     uint32_t node_id = plan.checkpoints[i].node.node_id;
-    node_ids.push_back(node_id);
     if (i<1) {
       segment.checkpoints.push_back(plan.checkpoints[i]);
       if (plan.checkpoints.size() == 1) {
         result.push_back(segment);
-        ROS_INFO_STREAM_NAMED("navigate", "Single checkpoint:");
+        ROS_INFO_STREAM_NAMED("navigate", "Single checkpoint: "<< node_id);
         segment.checkpoints.clear();
         return true;
       }
     } else if (i<plan.checkpoints.size()-1) {
       int8_t smooth_turn = isSmoothTurnPossible(plan.checkpoints[i-1], plan.checkpoints[i], plan.checkpoints[i+1]);
-      bool found_duplicate = (std::find(node_ids.begin(), node_ids.end(), node_id) != node_ids.end());
+      bool found_duplicate = std::find(node_ids.begin(), node_ids.end(), node_id) != node_ids.end();
+      node_ids.push_back(node_id);
       if(found_duplicate || (smooth_turn == 0)) {
         ROS_INFO_STREAM_NAMED("navigate", "Splitting the path because of loop: " << found_duplicate << "  Smooth turn: " << smooth_turn);
         node_ids.clear(); // clear the ids and do not consider as duplicates
