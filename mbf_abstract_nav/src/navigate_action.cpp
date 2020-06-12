@@ -145,8 +145,8 @@ void NavigateAction::start(GoalHandle &goal_handle)
 
     navigate_result.angle_to_goal = mbf_utility::angle(robot_pose, goal.path.checkpoints.back().pose);
     navigate_result.dist_to_goal = mbf_utility::distance(robot_pose, goal.path.checkpoints.back().pose);
-    ROS_INFO("Succeeded from navigation, double checking for orientation from mbf with \
-     dist_to_goal: %.4f, angle_to_goal: %.4f %s", navigate_result.dist_to_goal, navigate_result.angle_to_goal, current_goal.c_str());
+    ROS_INFO_STREAM_NAMED("navigate", "Succeeded from navigation, double checking for orientation from mbf with \
+     dist_to_goal: " << navigate_result.angle_to_goal << "angle_to_goal:  " <<  current_goal);
     if ((navigate_result.dist_to_goal <= goal.path.xy_goal_tolerance || goal.path.xy_goal_tolerance <= 1e-5) 
       && (navigate_result.angle_to_goal <= goal.path.yaw_goal_tolerance || goal.path.yaw_goal_tolerance <= 1e-5)) {
       ROS_INFO_STREAM_NAMED("navigate", "Plan complete with desired goal tolerance" << current_goal);
