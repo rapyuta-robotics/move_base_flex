@@ -320,7 +320,6 @@ int8_t NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoin
   double initial_orientation = tf2::getYaw(previous.pose.pose.orientation);
   double initial_slope = std::atan2((current.pose.pose.position.y - previous.pose.pose.position.y), 
     (current.pose.pose.position.x - previous.pose.pose.position.x));
-  ROS_INFO_STREAM("Evaluating checkpoint " << current.node.node_id);
   ROS_INFO("Initial orientation %f, initial angle: %f", initial_orientation, initial_slope);
   double orientation = tf2::getYaw(current.pose.pose.orientation);
   double slope = std::atan2((next.pose.pose.position.y - current.pose.pose.position.y), 
@@ -365,6 +364,7 @@ bool NavigateAction::getSplitPath(
     segment.xy_goal_tolerance = plan.xy_goal_tolerance;
     segment.yaw_goal_tolerance = plan.xy_goal_tolerance;
     uint32_t node_id = plan.checkpoints[i].node.node_id;
+    ROS_INFO_STREAM("Evaluating checkpoint: " << node_id);
     if (i<1) {
       segment.checkpoints.push_back(plan.checkpoints[i]);
       if (plan.checkpoints.size() == 1) {
@@ -377,6 +377,11 @@ bool NavigateAction::getSplitPath(
       int8_t smooth_turn = isSmoothTurnPossible(plan.checkpoints[i-1], plan.checkpoints[i], plan.checkpoints[i+1]);
       bool found_duplicate = std::find(node_ids.begin(), node_ids.end(), node_id) != node_ids.end();
       node_ids.push_back(node_id);
+      std::cout << "node ids present in the vector: ";
+      for (const auto id: node_ids) {
+        std::cout << id << ", ";
+      }
+      std::cout << std::endl;
       if(found_duplicate || (smooth_turn == 0)) {
         ROS_INFO_STREAM_NAMED("navigate", "Splitting the path because of loop: " << found_duplicate << "  Smooth turn: " << smooth_turn);
         node_ids.clear(); // clear the ids and do not consider as duplicates
