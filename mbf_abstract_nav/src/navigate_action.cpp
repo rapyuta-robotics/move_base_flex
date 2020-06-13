@@ -400,6 +400,11 @@ bool NavigateAction::getSplitPath(
         return false;
       } else {
         segment.checkpoints.push_back(plan.checkpoints[i]);
+        node_ids.push_back(node_id);
+        std::cout << "node ids present in the vector: ";
+        for (const auto id: node_ids) {
+          std::cout << id << ", ";
+        }
       }
     } else {
       bool found_duplicate = std::find(node_ids.begin(), node_ids.end(), node_id) != node_ids.end();
