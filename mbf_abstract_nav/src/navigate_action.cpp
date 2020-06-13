@@ -359,6 +359,7 @@ bool NavigateAction::getSplitPath(
   }
   forklift_interfaces::NavigatePath segment;
   std::vector<uint32_t> node_ids;
+
   for (size_t i = 0 ; i < plan.checkpoints.size(); i++) {
     segment.header = plan.header;
     segment.xy_goal_tolerance = plan.xy_goal_tolerance;
@@ -372,6 +373,7 @@ bool NavigateAction::getSplitPath(
       for (const auto id: node_ids) {
         std::cout << id << ", ";
       }
+      std::cout << std::endl;
       if (plan.checkpoints.size() == 1) {
         result.push_back(segment);
         ROS_INFO_STREAM_NAMED("navigate", "Single checkpoint: "<< node_id);
@@ -381,12 +383,6 @@ bool NavigateAction::getSplitPath(
     } else if (i<plan.checkpoints.size()-1) {
       int8_t smooth_turn = isSmoothTurnPossible(plan.checkpoints[i-1], plan.checkpoints[i], plan.checkpoints[i+1]);
       bool found_duplicate = std::find(node_ids.begin(), node_ids.end(), node_id) != node_ids.end();
-      node_ids.push_back(node_id);
-      std::cout << "node ids present in the vector: ";
-      for (const auto id: node_ids) {
-        std::cout << id << ", ";
-      }
-      std::cout << std::endl;
       if(found_duplicate || (smooth_turn == 0)) {
         ROS_INFO_STREAM_NAMED("navigate", "Splitting the path because of loop: " << found_duplicate << "  Smooth turn: " << smooth_turn);
         node_ids.clear(); // clear the ids and do not consider as duplicates
@@ -394,16 +390,27 @@ bool NavigateAction::getSplitPath(
         result.push_back(segment);
         segment.checkpoints.clear();
         segment.checkpoints.push_back(plan.checkpoints[i]);
+        node_ids.push_back(node_id);
+        std::cout << "node ids present in the vector: ";
+        for (const auto id: node_ids) {
+          std::cout << id << ", ";
+        }
       } else if (smooth_turn < 0) {
         ROS_INFO_STREAM_NAMED("navigate", "Terminating as the spin turn flag is set to -1");
         return false;
       } else {
-         segment.checkpoints.push_back(plan.checkpoints[i]);
+        segment.checkpoints.push_back(plan.checkpoints[i]);
       }
     } else {
+      bool found_duplicate = std::find(node_ids.begin(), node_ids.end(), node_id) != node_ids.end();
       ROS_INFO("Plan requires final node spin to be : %d", plan.checkpoints[i].node.spin_turn);
-      forklift_interfaces::Checkpoint checkpoint = plan.checkpoints[i];
-      segment.checkpoints.push_back(checkpoint);
+      if (found_duplicate) {
+        ROS_INFO_STREAM_NAMED("navigate", "found duplicate node at the last node");
+        segment.checkpoints.push_back(plan.checkpoints[i]);
+        result.push_back(segment);
+        segment.checkpoints.clear();
+      }
+      segment.checkpoints.push_back(plan.checkpoints[i]);
       result.push_back(segment);
       segment.checkpoints.clear();
     }
