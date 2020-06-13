@@ -367,6 +367,7 @@ bool NavigateAction::getSplitPath(
     ROS_INFO_STREAM("Evaluating checkpoint: " << node_id);
     if (i<1) {
       segment.checkpoints.push_back(plan.checkpoints[i]);
+      node_ids.push_back(node_id);
       if (plan.checkpoints.size() == 1) {
         result.push_back(segment);
         ROS_INFO_STREAM_NAMED("navigate", "Single checkpoint: "<< node_id);
