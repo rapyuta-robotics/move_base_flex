@@ -368,6 +368,10 @@ bool NavigateAction::getSplitPath(
     if (i<1) {
       segment.checkpoints.push_back(plan.checkpoints[i]);
       node_ids.push_back(node_id);
+      std::cout << "node ids present in the vector: ";
+      for (const auto id: node_ids) {
+        std::cout << id << ", ";
+      }
       if (plan.checkpoints.size() == 1) {
         result.push_back(segment);
         ROS_INFO_STREAM_NAMED("navigate", "Single checkpoint: "<< node_id);
