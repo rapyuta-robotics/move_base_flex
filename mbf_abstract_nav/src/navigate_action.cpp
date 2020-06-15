@@ -225,9 +225,11 @@ void NavigateAction::startNavigate()
     default:
       break;
     }
+    ROS_INFO("navigate_state %d", action_state_);
     ros::spinOnce();
     ros::Duration(0.1).sleep();
   }
+  ROS_INFO("Leaving while loop with %d", action_state_);
 }
 
 void NavigateAction::runNavigate()
@@ -454,7 +456,6 @@ void NavigateAction::actionSpinTurnDone(
     const actionlib::SimpleClientGoalState &state,
     const aifl_msg::SpinTurnResultConstPtr &result_ptr)
 {
-  action_state_ =  FAILED;
 
   ROS_INFO_STREAM_NAMED("navigate", "Action \"spin_turn\" finished.");
 
@@ -474,7 +475,7 @@ void NavigateAction::actionSpinTurnDone(
       navigate_result.status = forklift_interfaces::NavigateResult::SPIN_FAILURE;
       navigate_result.remarks = "Spin turn failed!";
       goal_handle_.setAborted(navigate_result, state.getText());
-
+      action_state_ = FAILED;
     }
     else
     {

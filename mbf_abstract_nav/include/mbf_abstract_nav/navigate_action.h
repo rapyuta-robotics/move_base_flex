@@ -158,6 +158,8 @@ class NavigateAction
 
   enum NavigateActionState
   {
+    SPIN_ACTIVE,
+    NAVIGATION_ACTIVE,
     ACTIVE,
     IDLE,
     SPLIT_PATH,
