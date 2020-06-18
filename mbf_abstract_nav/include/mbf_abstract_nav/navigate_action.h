@@ -90,7 +90,7 @@ class NavigateAction
     const forklift_interfaces::Checkpoint& current, const forklift_interfaces::Checkpoint& next);
 
   bool getSplitPath(
-      const forklift_interfaces::NavigatePath &plan,
+      forklift_interfaces::NavigatePath &plan,
       std::vector<forklift_interfaces::NavigatePath> &result);
 
   void actionExePathActive();
@@ -144,6 +144,9 @@ class NavigateAction
   geometry_msgs::PoseStamped robot_pose_;
 
   ros::NodeHandle private_nh_;
+
+  ///! the current route that is being processed, not used by navigation internally
+  int32_t route_id_;
 
   //! Action client used by the navigate action
   ActionClientExePath action_client_exe_path_;
