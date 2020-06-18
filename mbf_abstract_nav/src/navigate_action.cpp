@@ -475,17 +475,20 @@ void NavigateAction::actionExePathDone(
   {
     case actionlib::SimpleClientGoalState::SUCCEEDED:
       // check if we need a spin turn at the last checkpoint
-      if(!path_segments_.empty() && path_segments_.front().checkpoints.back().node.spin_turn >= 0) {
+      if(!path_segments_.empty()) {
         const auto orientation = path_segments_.front().checkpoints.back().pose.pose.orientation;
-        geometry_msgs::PoseStamped robot_pose;
-        robot_info_.getRobotPose(robot_pose);        
-        double yaw_goal = getYaw(orientation);   
-        ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << getYaw(robot_pose.pose.orientation));
-        action_state_ = SPIN_TURN;   //set state to execute spin
-        spin_turn_goal_.angle = yaw_goal;
-      } else if (!path_segments_.empty()) {
-        action_state_ = NAVIGATE;
+        double yaw_goal = getYaw(orientation); 
+        if ((path_segments_.front().checkpoints.back().node.spin_turn >= 0) || (yaw_goal < 0.35)) {
+          geometry_msgs::PoseStamped robot_pose;
+          robot_info_.getRobotPose(robot_pose);
+          ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << getYaw(robot_pose.pose.orientation));
+          action_state_ = SPIN_TURN;   //set state to execute spin
+          spin_turn_goal_.angle = yaw_goal;
+        } else {
+          action_state_ = NAVIGATE;
+        }
       }
+
       if(path_segments_.empty() && action_state_ != SPIN_ACTIVE) {
         ROS_INFO_STREAM_NAMED("navigate", "Succeeded because all segments completed" << action_state_);
         action_state_ = SUCCEEDED;
