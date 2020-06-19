@@ -505,8 +505,8 @@ void NavigateAction::actionExePathDone(
           return;
         }
         const auto orientation = path_segments_.front().checkpoints.back().pose.pose.orientation;
-        double yaw_goal = getYaw(orientation); 
-        if ((path_segments_.front().checkpoints.back().node.spin_turn >= 0) || (yaw_goal < 0.35)) {
+        double yaw_goal = getYaw(orientation); // get yaw returns in degrees
+        if ((path_segments_.front().checkpoints.back().node.spin_turn >= 0) || (yaw_goal < 30.0)) {
           ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << getYaw(robot_pose.pose.orientation));
           action_state_ = SPIN_TURN;   //set state to execute spin
           spin_turn_goal_.angle = yaw_goal;
