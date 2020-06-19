@@ -224,13 +224,25 @@ void NavigateAction::runNavigate(const forklift_interfaces::NavigatePath& plan)
   ROS_INFO_STREAM_NAMED("navigate", "Segments remaning: " << path_segments_.size());
   if(!path_segments_.empty()) {
     ROS_INFO_STREAM_NAMED("navigate","Spin turn: "<< static_cast<int>(path_segments_.front().checkpoints.front().node.spin_turn));
+    
+    //compute the distance from the current point to the first point
+    geometry_msgs::PoseStamped robot_pose;
+    robot_info_.getRobotPose(robot_pose);  
+    double min_angle = mbf_utility::angle(robot_pose , path_segments_.front().checkpoints.front().pose);
+    min_angle = min_angle * 180 / M_PI ;
+    double distance = mbf_utility::distance(robot_pose , path_segments_.front().checkpoints.front().pose);
+    
+    if ((distance > 3e-1) && min_angle > 15.0) {
+      ROS_WARN_STREAM_NAMED("navigate", "The current robot position is far by " << distance << "m and has angle offset of " << min_angle << "degrees");
+      exe_path_goal_.path.checkpoints.clear();
+      exe_path_goal_.path.checkpoints.push_back(path_segments_.front().checkpoints.front());
+      action_state_ = EXE_PATH;
+      return;
+    }
+
     //check if the first checkpoint needs spin turn
     if((plan.checkpoints.size() > 1) && (path_segments_.front().checkpoints.front().node.spin_turn >= 0)) {
       const auto orientation = path_segments_.front().checkpoints.front().pose.pose.orientation;
-      geometry_msgs::PoseStamped robot_pose;
-      robot_info_.getRobotPose(robot_pose);  
-      double min_angle = mbf_utility::angle(robot_pose , path_segments_.front().checkpoints.front().pose);
-      min_angle = min_angle * 180 / M_PI ;      
       double yaw_goal = getYaw(orientation);
 
       ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << getYaw(robot_pose.pose.orientation));
@@ -482,11 +494,19 @@ void NavigateAction::actionExePathDone(
     case actionlib::SimpleClientGoalState::SUCCEEDED:
       // check if we need a spin turn at the last checkpoint
       if(!path_segments_.empty()) {
+        // check if it has reached the goal
+        geometry_msgs::PoseStamped robot_pose;
+        robot_info_.getRobotPose(robot_pose);
+
+        double distance = mbf_utility::distance(robot_pose, path_segments_.front().checkpoints.back().pose);
+        if (distance > 3e-1) {
+          ROS_WARN_STREAM_NAMED("navigate", "did not reach the last point of the segment, navigate again");
+          action_state_ = NAVIGATE;
+          return;
+        }
         const auto orientation = path_segments_.front().checkpoints.back().pose.pose.orientation;
         double yaw_goal = getYaw(orientation); 
         if ((path_segments_.front().checkpoints.back().node.spin_turn >= 0) || (yaw_goal < 0.35)) {
-          geometry_msgs::PoseStamped robot_pose;
-          robot_info_.getRobotPose(robot_pose);
           ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << getYaw(robot_pose.pose.orientation));
           action_state_ = SPIN_TURN;   //set state to execute spin
           spin_turn_goal_.angle = yaw_goal;
