@@ -342,27 +342,30 @@ int8_t NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoin
     (next.pose.pose.position.x - current.pose.pose.position.x));
 
   ROS_INFO("Next orientation %f, Next angle: %f", orientation, slope);
+
+  int8_t smooth = 0;
+  // check if robot is facing forwards in both the segments
+  if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope)) <= 8e-2) &&
+    (std::abs(angles::shortest_angular_distance(orientation, slope)) <= 8e-2)) {
+      smooth = 1;
+  }
+  // check if robot is facing backwards in both the segments
+  if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope+M_PI)) <= 8e-2) &&
+    (std::abs(angles::shortest_angular_distance(orientation, slope+M_PI)) <= 8e-2)) {
+      smooth = 1;
+  }
+
   // check if its straight line segment
-  if (std::abs(angles::shortest_angular_distance(initial_orientation, orientation)) < 3e-1) {
+  if ((std::abs(angles::shortest_angular_distance(initial_orientation, orientation)) <= 8e-2) && (smooth == 1)) {
     ROS_INFO("Expecting straight line checkpoint: %d and checkpoint: %d", previous.node.node_id, current.node.node_id);
-    return 1;
+    return smooth;
   }
   if (current.node.spin_turn > 0) {  // if it is not straight line, force spin turn
     return 0;
   } else if (current.node.spin_turn < 0) {
     return -1;
   }
-  // check if robot is facing forwards in both the segments
-  if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope)) < 3e-1) &&
-    (std::abs(angles::shortest_angular_distance(orientation, slope)) < 3e-1)) {
-      return 1;
-  }
-  // check if robot is facing backwards in both the segments
-  if((std::abs(angles::shortest_angular_distance(initial_orientation, initial_slope+M_PI)) < 3e-1) &&
-    (std::abs(angles::shortest_angular_distance(orientation, slope+M_PI)) < 3e-1)) {
-      return 1;
-  }
-  return 0;
+  return smooth;
 }
 
 bool NavigateAction::getSplitPath(
