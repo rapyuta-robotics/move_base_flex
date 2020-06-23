@@ -232,7 +232,7 @@ void NavigateAction::runNavigate(const forklift_interfaces::NavigatePath& plan)
     min_angle = min_angle * 180 / M_PI ;
     double distance = mbf_utility::distance(robot_pose , path_segments_.front().checkpoints.front().pose);
     
-    if ((distance > 3e-1) && min_angle > 15.0) {
+    if ((distance > 3e-1) && fabs(min_angle) > 15.0) {
       ROS_WARN_STREAM_NAMED("navigate", "The current robot position is far by " << distance << "m and has angle offset of " << min_angle << "degrees");
       exe_path_goal_.path.checkpoints.clear();
       exe_path_goal_.path.checkpoints.push_back(path_segments_.front().checkpoints.front());
@@ -248,9 +248,9 @@ void NavigateAction::runNavigate(const forklift_interfaces::NavigatePath& plan)
       ROS_INFO_STREAM_NAMED("navigate", "Spin goal: " << yaw_goal << ", Current yaw: " << getYaw(robot_pose.pose.orientation));
       ROS_INFO_STREAM("min_angle: " << min_angle);
       
-      if (fabs(min_angle)<10.0) {
+      if (fabs(min_angle)<5.0) {
         path_segments_.front().checkpoints.front().node.spin_turn = -1;
-        ROS_INFO_STREAM_NAMED("navigate", "ignoring spin as the angle is less than 10 deg: " << path_segments_.front().checkpoints.front().node.node_id);
+        ROS_INFO_STREAM_NAMED("navigate", "ignoring spin as the angle is less than 5 deg: " << path_segments_.front().checkpoints.front().node.node_id);
         action_state_ = NAVIGATE;
         return;
       }
