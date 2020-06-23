@@ -356,7 +356,9 @@ int8_t NavigateAction::isSmoothTurnPossible(const forklift_interfaces::Checkpoin
   }
 
   // check if its straight line segment
-  if ((((previous.pose.pose.position.x * current.pose.pose.position.x) + (previous.pose.pose.position.y * current.pose.pose.position.y)) >= 0) && (smooth == 1)) {
+  if ((((previous.pose.pose.position.x * current.pose.pose.position.x) + (previous.pose.pose.position.y * current.pose.pose.position.y)) >= 0) \
+      (std::abs(angles::shortest_angular_distance(initial_orientation, orientation)) <= 3e-1) \
+      && (smooth == 1)) {
     ROS_INFO("Expecting straight line checkpoint: %d and checkpoint: %d", previous.node.node_id, current.node.node_id);
     return smooth;
   }
