@@ -90,6 +90,9 @@ void NavigateAction::start(GoalHandle &goal_handle)
     ROS_INFO_STREAM_NAMED("navigate", "Received a new path when spin turn is active, waiting for spin turn to complete");
     action_client_spin_turn_.waitForResult(ros::Duration(60.0));
   }
+  if (action_state_ == EXE_PATH_ACTIVE) {
+    action_client_exe_path_.stopTrackingGoal();
+  }
   goal_handle.setAccepted();
   goal_handles_.push_back(goal_handle);
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
