@@ -86,19 +86,20 @@ void NavigateAction::cancel()
 
 void NavigateAction::start(GoalHandle &goal_handle)
 {
+  const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
+  forklift_interfaces::NavigatePath plan = goal.path;
+  
   if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone()) {
     ROS_INFO_STREAM_NAMED("navigate", "Received a new path when spin turn is active, waiting for spin turn to complete");
     action_client_spin_turn_.waitForResult(ros::Duration(60.0));
   }
+  ROS_INFO_STREAM_NAMED("navigate", "Received a new goal in state:  " << action_state_  << "\n" << goal);
   if (action_state_ == EXE_PATH_ACTIVE) {
+    ROS_WARN("Stopping feedback as the new feedback was recieved task");
     action_client_exe_path_.stopTrackingGoal();
   }
-  goal_handle.setAccepted();
   goal_handles_.push_back(goal_handle);
-  const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
-  forklift_interfaces::NavigatePath plan = goal.path;
   route_id_ = goal.route_id;
-  ROS_INFO_STREAM_NAMED("navigate", "Received a new path:" << goal);
   goal_handle_ = goal_handle;
   std::string current_goal = goal_handle_.getGoalID().id;
   action_state_ = SPLIT_PATH;
@@ -141,6 +142,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
     return;
   }
   action_state_ = NAVIGATE; // start navigating with the split path
+  goal_handle.setAccepted();
   startNavigate(plan);
   ROS_INFO_STREAM_NAMED("navigate","Accumulated goal handles: " << goal_handles_.size());
   if ((action_state_ == SUCCEEDED) && (goal_handle.getGoalID().id == goal_handles_.back().getGoalID().id)) {
