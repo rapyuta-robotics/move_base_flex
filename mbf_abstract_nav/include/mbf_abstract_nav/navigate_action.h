@@ -147,6 +147,7 @@ class NavigateAction
 
   ///! the current route that is being processed, not used by navigation internally
   int32_t route_id_;
+  int32_t active_route_id_;
 
   //! Action client used by the navigate action
   ActionClientExePath action_client_exe_path_;

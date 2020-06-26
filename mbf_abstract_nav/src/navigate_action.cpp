@@ -283,14 +283,16 @@ void NavigateAction::actionSpinTurnActive()
 
 void NavigateAction::actionExePathActive()
 {
-  ROS_INFO_STREAM_NAMED("navigate", "The \"exe_path\" action is active.");
+  ROS_INFO_STREAM_NAMED("navigate", "The \"exe_path\" action is active, setting the route_id to %");
+  active_route_id_ = route_id_;
+  
 }
 
 void NavigateAction::actionExePathFeedback(
     const mbf_msgs::ExePathFeedbackConstPtr &feedback)
 {
   navigate_feedback_.status = feedback->status;
-  navigate_feedback_.route_id = route_id_;
+  navigate_feedback_.route_id = active_route_id_;
   navigate_feedback_.remarks = feedback->remarks;
   navigate_feedback_.angle_to_goal = feedback->angle_to_goal;
   navigate_feedback_.dist_to_goal = feedback->dist_to_goal;
@@ -486,7 +488,7 @@ void NavigateAction::actionExePathDone(
   const mbf_msgs::ExePathResult& result = *(result_ptr.get());
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle_.getGoal().get());
   forklift_interfaces::NavigateResult navigate_result;
-  navigate_result.route_id = route_id_;
+  navigate_result.route_id = active_route_id_;
   navigate_result.status = result.status;
   navigate_result.remarks = result.remarks;
   navigate_result.dist_to_goal = result.dist_to_goal;
