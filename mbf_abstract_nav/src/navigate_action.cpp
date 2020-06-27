@@ -84,6 +84,17 @@ void NavigateAction::cancel()
   }
 }
 
+void NavigateAction::abortGoal(const forklift_interfaces::NavigateResult& navigate_result)
+{
+  ROS_WARN("Aborting goal");
+  goal_handle_.setAborted(navigate_result, navigate_result.remarks);
+  if (!action_client_exe_path_.getState().isDone()) {
+    action_client_exe_path_.cancelGoal();
+  }
+  action_state_ = FAILED;
+
+}
+
 void NavigateAction::start(GoalHandle &goal_handle)
 {
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
@@ -125,8 +136,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
     ROS_INFO_STREAM_NAMED("navigate", "Could not connect to one or more of navigate actions: exe_path, spin_turn!");
     navigate_result.status = forklift_interfaces::NavigateResult::INTERNAL_ERROR;
     navigate_result.remarks = "Could not connect to the navigate actions!";
-    goal_handle.setAborted(navigate_result, navigate_result.remarks);
-    action_state_ = FAILED;
+    abortGoal(navigate_result);
     return;
   }
   // call function to split path between spin turns 
@@ -135,8 +145,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
     ROS_INFO_STREAM_NAMED("navigate", "Invalid path provided");
     navigate_result.remarks = "Invalid path was requested to navigation";
     navigate_result.status = forklift_interfaces::NavigateResult::INVALID_PATH;
-    goal_handle.setAborted(navigate_result, navigate_result.remarks);
-    action_state_ = FAILED;
+    abortGoal(navigate_result);
     return;
   }
   action_state_ = NAVIGATE; // start navigating with the split path
@@ -166,8 +175,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
       navigate_result.status = forklift_interfaces::NavigateResult::MISSED_GOAL;
       navigate_result.remarks = "Requested pose in the plan was not reached";
       navigate_result.final_pose = robot_pose;
-      goal_handle.setAborted(navigate_result, navigate_result.remarks);
-      action_state_ = FAILED;
+      abortGoal(navigate_result);
     }
   } else {
     //ROS_INFO_STREAM_NAMED("navigate", "Navigation failed to reach the goal..!!!!" << current_goal);
@@ -335,7 +343,7 @@ void NavigateAction::actionExePathFeedback(
       navigate_result.final_pose = robot_pose_;
       navigate_result.angle_to_goal = navigate_feedback_.angle_to_goal;
       navigate_result.dist_to_goal = navigate_feedback_.dist_to_goal;
-      goal_handle_.setAborted(navigate_result, navigate_result.remarks);
+      abortGoal(navigate_result);
     }
   }
 }
@@ -476,9 +484,8 @@ void NavigateAction::actionSpinTurnDone(
       ROS_INFO_STREAM_NAMED("navigate", "Action \"spin_turn\" failed :" << result);
       forklift_interfaces::NavigateResult navigate_result;
       navigate_result.status = forklift_interfaces::NavigateResult::SPIN_FAILURE;
-      navigate_result.remarks = "Spin turn failed!";
-      goal_handle_.setAborted(navigate_result, state.getText());
-      action_state_ = FAILED;
+      navigate_result.remarks = state.getText();
+      abortGoal(navigate_result);
     } else {
       ROS_INFO_STREAM_NAMED("navigate", "Action \"spin_turn\" completed successfully");
       action_state_ = NAVIGATE;

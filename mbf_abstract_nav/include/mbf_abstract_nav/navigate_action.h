@@ -84,6 +84,8 @@ class NavigateAction
 
  protected:
 
+  void abortGoal(const forklift_interfaces::NavigateResult& navigate_result);
+
   void actionExePathFeedback(const mbf_msgs::ExePathFeedbackConstPtr &feedback);
 
   int8_t isSmoothTurnPossible(const forklift_interfaces::Checkpoint& previous, 
