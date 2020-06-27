@@ -88,7 +88,7 @@ void NavigateAction::start(GoalHandle &goal_handle)
 {
   const forklift_interfaces::NavigateGoal& goal = *(goal_handle.getGoal().get());
   forklift_interfaces::NavigatePath plan = goal.path;
-  
+  navigate_feedback_ = forklift_interfaces::NavigateFeedback();
   if(action_state_ == SPIN_ACTIVE && !action_client_spin_turn_.getState().isDone()) {
     ROS_INFO_STREAM_NAMED("navigate", "Received a new path when spin turn is active, waiting for spin turn to complete");
     action_client_spin_turn_.waitForResult(ros::Duration(60.0));
@@ -100,8 +100,6 @@ void NavigateAction::start(GoalHandle &goal_handle)
   }
   goal_handles_.push_back(goal_handle);
   route_id_ = goal.route_id;
-  goal_handle_ = goal_handle;
-  std::string current_goal = goal_handle_.getGoalID().id;
   action_state_ = SPLIT_PATH;
   ROS_INFO_STREAM_NAMED("navigate", "Start action "  << "navigate");
   forklift_interfaces::NavigateResult navigate_result;
@@ -143,6 +141,8 @@ void NavigateAction::start(GoalHandle &goal_handle)
   }
   action_state_ = NAVIGATE; // start navigating with the split path
   goal_handle.setAccepted();
+  goal_handle_ = goal_handle;
+  std::string current_goal = goal_handle_.getGoalID().id;
   startNavigate(plan);
   ROS_INFO_STREAM_NAMED("navigate","Accumulated goal handles: " << goal_handles_.size());
   if ((action_state_ == SUCCEEDED) && (goal_handle.getGoalID().id == goal_handles_.back().getGoalID().id)) {
@@ -207,7 +207,7 @@ void NavigateAction::startNavigate(const forklift_interfaces::NavigatePath& plan
         /* code */
         break;
       case EXE_PATH_ACTIVE:
-        //ROS_INFO_STREAM_NAMED("navigate", "Navigation active");
+        goal_handle_.publishFeedback(navigate_feedback_);
         break;
       case SPIN_ACTIVE:
         ROS_INFO_STREAM_THROTTLE_NAMED(1, "navigate", "Spin turn active");
@@ -296,19 +296,22 @@ void NavigateAction::actionExePathActive()
 void NavigateAction::actionExePathFeedback(
     const mbf_msgs::ExePathFeedbackConstPtr &feedback)
 {
-  navigate_feedback_.status = feedback->status;
-  navigate_feedback_.route_id = active_route_id_;
-  navigate_feedback_.remarks = feedback->remarks;
-  navigate_feedback_.angle_to_goal = feedback->angle_to_goal;
-  navigate_feedback_.dist_to_goal = feedback->dist_to_goal;
-  navigate_feedback_.current_pose = feedback->current_pose;
-  navigate_feedback_.velocity = feedback->velocity;
-  navigate_feedback_.last_checkpoint = feedback->last_checkpoint; //TODO: remove
-  navigate_feedback_.target_checkpoint = feedback->target_checkpoint; //TODO: remove
-  navigate_feedback_.target_index = feedback->target_checkpoint;
-  navigate_feedback_.last_index = feedback->last_checkpoint;
-  robot_pose_ = feedback->current_pose;
-  goal_handle_.publishFeedback(navigate_feedback_);
+  if (goal_handle_.getGoalID().id == goal_handles_.back().getGoalID().id) {
+    navigate_feedback_.status = feedback->status;
+    navigate_feedback_.route_id = active_route_id_;
+    navigate_feedback_.remarks = feedback->remarks;
+    navigate_feedback_.angle_to_goal = feedback->angle_to_goal;
+    navigate_feedback_.dist_to_goal = feedback->dist_to_goal;
+    navigate_feedback_.current_pose = feedback->current_pose;
+    navigate_feedback_.velocity = feedback->velocity;
+    navigate_feedback_.last_checkpoint = feedback->last_checkpoint; //TODO: remove
+    navigate_feedback_.target_checkpoint = feedback->target_checkpoint; //TODO: remove
+    navigate_feedback_.target_index = feedback->target_checkpoint;
+    navigate_feedback_.last_index = feedback->last_checkpoint;
+    robot_pose_ = feedback->current_pose;
+  }
+
+  //goal_handle_.publishFeedback(navigate_feedback_);
 
   // we create a navigation-level oscillation detection using exe_path action's feedback,
   // as the later doesn't handle oscillations created by quickly failing repeated plans
