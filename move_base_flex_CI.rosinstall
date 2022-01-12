@@ -1,0 +1,9 @@
+- git:
+    local-name: forklift_interfaces
+    uri: git@github.com:rapyuta-robotics/forklift_interfaces.git
+    version: devel
+
+- git:
+    local-name: rr_navigation
+    uri: git@github.com:rapyuta-robotics/rr_navigation.git
+    version: devel
