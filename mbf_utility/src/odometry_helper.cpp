@@ -35,6 +35,7 @@
  * Author: TKruse
  *********************************************************************/
 #include <mbf_utility/odometry_helper.h>
+#include "ros/console.h"
 
 namespace mbf_utility
 {
@@ -46,10 +47,10 @@ OdometryHelper::OdometryHelper(const std::string& odom_topic)
 
 void OdometryHelper::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
-  ROS_INFO_STREAM_ONCE("Odometry received on topic " << getOdomTopic());
 
   // we assume that the odometry is published in the frame of the base
   boost::mutex::scoped_lock lock(odom_mutex_);
+  ROS_INFO_STREAM_THROTTLE(1,"odom callback");
   base_odom_ = *msg;
   if (base_odom_.header.stamp.isZero())
     base_odom_.header.stamp = ros::Time::now();

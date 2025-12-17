@@ -51,6 +51,8 @@
 
 #include <actionlib/server/action_server.h>
 #include <mbf_utility/robot_information.h>
+#include <ros/console.h>
+#include <ros/duration.h>
 
 #include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/abstract_execution_base.h"
@@ -141,12 +143,25 @@ public:
       typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
       if (slot_it != concurrency_slots_.end() && slot_it->second.in_use) {
         // if there is already a plugin running on the same slot, cancel it
+        const auto current_state = slot_it->second.execution->getState();
         slot_it->second.execution->cancel();
 
-        // WARNING: this will block the main thread for an arbitrary time during which we won't execute callbacks
+        slot_map_mtx_.unlock();
+
+        ROS_ERROR_STREAM("state "<<current_state);
+        // while (slot_it->second.execution->getState()!=current_state && ros::ok())
+          while (slot_it->second.execution->getState() != 11 && ros::ok())
+        {
+          ros::spinOnce();
+          ROS_ERROR_STREAM_THROTTLE(1,"\nWAIT FOR CANCEL" << slot_it->second.execution->getState());
+        }
+
+        ROS_ERROR_STREAM("state changed to "<<slot_it->second.execution->getState());
+
         if (slot_it->second.thread_ptr->joinable()) {
           slot_it->second.thread_ptr->join();
         }
+        slot_map_mtx_.lock();
       }
 
       if(slot_it != concurrency_slots_.end())
