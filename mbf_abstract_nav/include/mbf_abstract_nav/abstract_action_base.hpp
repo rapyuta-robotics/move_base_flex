@@ -47,6 +47,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/bind.hpp>
 
+#include <future>
 #include <string>
 #include <map>
 #include <utility>
@@ -179,12 +180,13 @@ public:
     }
     else
     {
-    boost::thread cancel_thread(
-      [goal_handle, this, slot, execution_ptr]() {
-        cancelAndUpdateGoal(goal_handle, slot, execution_ptr);
-      }
-    );
-    cancel_thread.detach();
+      cancel_futures_.emplace_back(
+        std::async(std::launch::async,
+          [goal_handle, this, slot, execution_ptr]() {
+            cancelAndUpdateGoal(goal_handle, slot, execution_ptr);
+          }
+        )
+      );
     }
   }
 
@@ -243,9 +245,8 @@ protected:
 
   boost::thread_group threads_;
   ConcurrencyMap concurrency_slots_;
-
+  std::vector<std::future<void>> cancel_futures_;
   boost::mutex slot_map_mtx_;
-
 };
 
 }
