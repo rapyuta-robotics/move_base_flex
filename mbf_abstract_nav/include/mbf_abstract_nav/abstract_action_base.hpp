@@ -39,6 +39,8 @@
 #ifndef MBF_ABSTRACT_NAV__ABSTRACT_ACTION_BASE_H_
 #define MBF_ABSTRACT_NAV__ABSTRACT_ACTION_BASE_H_
 
+#include <boost/thread/detail/thread.hpp>
+#include <boost/thread/lock_types.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
@@ -126,42 +128,20 @@ public:
     }
   }
 
-  virtual void start(
-      GoalHandle &goal_handle,
-      typename Execution::Ptr execution_ptr
-  )
-  {
-    uint8_t slot = goal_handle.getGoal()->concurrency_slot;
-
-    if(goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::RECALLING)
+  virtual void cancelAndUpdateGoal(GoalHandle goal_handle, typename ConcurrencyMap::key_type slot, typename Execution::Ptr execution_ptr)
     {
-      goal_handle.setCanceled();
-    }
-    else
-    {
-      boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
+      boost::unique_lock<boost::mutex> guard(slot_map_mtx_);
       typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
       if (slot_it != concurrency_slots_.end() && slot_it->second.in_use) {
         // if there is already a plugin running on the same slot, cancel it
         const auto current_state = slot_it->second.execution->getState();
         slot_it->second.execution->cancel();
 
-        slot_map_mtx_.unlock();
-
-        ROS_ERROR_STREAM("state "<<current_state);
-        // while (slot_it->second.execution->getState()!=current_state && ros::ok())
-          while (slot_it->second.execution->getState() != 11 && ros::ok())
-        {
-          ros::spinOnce();
-          ROS_ERROR_STREAM_THROTTLE(1,"\nWAIT FOR CANCEL" << slot_it->second.execution->getState());
-        }
-
-        ROS_ERROR_STREAM("state changed to "<<slot_it->second.execution->getState());
-
+        guard.unlock();
         if (slot_it->second.thread_ptr->joinable()) {
           slot_it->second.thread_ptr->join();
         }
-        slot_map_mtx_.lock();
+        guard.lock();
       }
 
       if(slot_it != concurrency_slots_.end())
@@ -184,6 +164,27 @@ public:
       slot_it->second.execution = execution_ptr;
       slot_it->second.thread_ptr =
         threads_.create_thread(boost::bind(&AbstractActionBase::run, this, boost::ref(concurrency_slots_[slot])));
+  }
+
+  virtual void start(
+      GoalHandle &goal_handle,
+      typename Execution::Ptr execution_ptr
+  )
+  {
+    uint8_t slot = goal_handle.getGoal()->concurrency_slot;
+
+    if(goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::RECALLING)
+    {
+      goal_handle.setCanceled();
+    }
+    else
+    {
+    boost::thread cancel_thread(
+      [goal_handle, this, slot, execution_ptr]() {
+        cancelAndUpdateGoal(goal_handle, slot, execution_ptr);
+      }
+    );
+    cancel_thread.detach();
     }
   }
 
