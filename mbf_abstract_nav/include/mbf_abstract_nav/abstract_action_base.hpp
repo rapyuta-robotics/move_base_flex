@@ -39,8 +39,6 @@
 #ifndef MBF_ABSTRACT_NAV__ABSTRACT_ACTION_BASE_H_
 #define MBF_ABSTRACT_NAV__ABSTRACT_ACTION_BASE_H_
 
-#include <boost/thread/detail/thread.hpp>
-#include <boost/thread/lock_types.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
@@ -54,8 +52,6 @@
 
 #include <actionlib/server/action_server.h>
 #include <mbf_utility/robot_information.h>
-#include <ros/console.h>
-#include <ros/duration.h>
 
 #include "mbf_abstract_nav/MoveBaseFlexConfig.h"
 #include "mbf_abstract_nav/abstract_execution_base.h"
