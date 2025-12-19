@@ -131,7 +131,6 @@ public:
       typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
       if (slot_it != concurrency_slots_.end() && slot_it->second.in_use) {
         // if there is already a plugin running on the same slot, cancel it
-        const auto current_state = slot_it->second.execution->getState();
         slot_it->second.execution->cancel();
 
         guard.unlock();
