@@ -47,7 +47,7 @@ OdometryHelper::OdometryHelper(const std::string& odom_topic)
 void OdometryHelper::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
   ROS_INFO_STREAM_ONCE("Odometry received on topic " << getOdomTopic());
-  
+
   // we assume that the odometry is published in the frame of the base
   boost::mutex::scoped_lock lock(odom_mutex_);
   base_odom_ = *msg;
