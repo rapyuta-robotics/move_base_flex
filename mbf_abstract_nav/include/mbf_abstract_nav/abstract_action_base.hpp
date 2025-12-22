@@ -134,13 +134,11 @@ public:
         // if there is already a plugin running on the same slot, cancel it
         slot_it->second.execution->cancel();
 
-        guard.unlock();
         if (slot_it->second.thread_ptr->joinable())
         {
           cancel_execution_ = slot_it->second.execution;
           slot_it->second.thread_ptr->join();
         }
-        guard.lock();
       }
 
       if(slot_it != concurrency_slots_.end())
