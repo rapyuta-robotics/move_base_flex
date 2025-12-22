@@ -45,6 +45,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/bind.hpp>
 
+#include <future>
 #include <string>
 #include <map>
 #include <utility>
@@ -124,27 +125,18 @@ public:
     }
   }
 
-  virtual void start(
-      GoalHandle &goal_handle,
-      typename Execution::Ptr execution_ptr
-  )
-  {
-    uint8_t slot = goal_handle.getGoal()->concurrency_slot;
-
-    if(goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::RECALLING)
+  virtual void cancelAndUpdateGoal(GoalHandle goal_handle, typename ConcurrencyMap::key_type slot, typename Execution::Ptr execution_ptr)
     {
-      goal_handle.setCanceled();
-    }
-    else
-    {
-      boost::lock_guard<boost::mutex> guard(slot_map_mtx_);
+      boost::unique_lock<boost::mutex> guard(slot_map_mtx_);
       typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
-      if (slot_it != concurrency_slots_.end() && slot_it->second.in_use) {
+      if (slot_it != concurrency_slots_.end() && slot_it->second.in_use)
+      {
         // if there is already a plugin running on the same slot, cancel it
         slot_it->second.execution->cancel();
 
-        // WARNING: this will block the main thread for an arbitrary time during which we won't execute callbacks
-        if (slot_it->second.thread_ptr->joinable()) {
+        if (slot_it->second.thread_ptr->joinable())
+        {
+          cancel_execution_ = slot_it->second.execution;
           slot_it->second.thread_ptr->join();
         }
       }
@@ -169,6 +161,32 @@ public:
       slot_it->second.execution = execution_ptr;
       slot_it->second.thread_ptr =
         threads_.create_thread(boost::bind(&AbstractActionBase::run, this, boost::ref(concurrency_slots_[slot])));
+      }
+
+  virtual void start(GoalHandle &goal_handle, typename Execution::Ptr execution_ptr)
+  {
+    uint8_t slot = goal_handle.getGoal()->concurrency_slot;
+    if (cancel_future_.valid() && cancel_execution_)
+    {
+      if (cancel_future_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+      {
+        cancel_execution_->stop();
+      }
+    }
+
+
+    if(goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::RECALLING)
+    {
+      goal_handle.setCanceled();
+    }
+    else
+    {
+      cancel_future_ =
+        std::async(std::launch::async,
+          [goal_handle, this, slot, execution_ptr]() {
+            cancelAndUpdateGoal(goal_handle, slot, execution_ptr);
+          }
+        );
     }
   }
 
@@ -227,9 +245,9 @@ protected:
 
   boost::thread_group threads_;
   ConcurrencyMap concurrency_slots_;
-
+  std::future<void> cancel_future_;
   boost::mutex slot_map_mtx_;
-
+  typename Execution::Ptr cancel_execution_;
 };
 
 }
