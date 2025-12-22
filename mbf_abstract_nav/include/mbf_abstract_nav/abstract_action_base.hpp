@@ -129,12 +129,14 @@ public:
     {
       boost::unique_lock<boost::mutex> guard(slot_map_mtx_);
       typename ConcurrencyMap::iterator slot_it = concurrency_slots_.find(slot);
-      if (slot_it != concurrency_slots_.end() && slot_it->second.in_use) {
+      if (slot_it != concurrency_slots_.end() && slot_it->second.in_use)
+      {
         // if there is already a plugin running on the same slot, cancel it
         slot_it->second.execution->cancel();
 
         guard.unlock();
-        if (slot_it->second.thread_ptr->joinable()) {
+        if (slot_it->second.thread_ptr->joinable())
+        {
           cancel_execution_ = slot_it->second.execution;
           slot_it->second.thread_ptr->join();
         }
@@ -163,17 +165,16 @@ public:
         threads_.create_thread(boost::bind(&AbstractActionBase::run, this, boost::ref(concurrency_slots_[slot])));
       }
 
-  virtual void start(
-      GoalHandle &goal_handle,
-      typename Execution::Ptr execution_ptr
-  )
+  virtual void start(GoalHandle &goal_handle, typename Execution::Ptr execution_ptr)
   {
     uint8_t slot = goal_handle.getGoal()->concurrency_slot;
-    if (cancel_future_.valid() && cancel_execution_) {
-      if (cancel_future_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+    if (cancel_future_.valid() && cancel_execution_)
+    {
+      if (cancel_future_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+      {
         cancel_execution_->stop();
-        }
       }
+    }
 
 
     if(goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::RECALLING)
