@@ -18,6 +18,7 @@ find_package(catkin REQUIRED
   tf
   tf2
   tf2_ros
+  backward_ros
   )
 
 find_package(Boost COMPONENTS thread chrono REQUIRED)

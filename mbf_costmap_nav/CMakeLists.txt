@@ -18,6 +18,7 @@ find_package(catkin REQUIRED
   roscpp
   std_msgs
   std_srvs
+  backward_ros
   tf
 )
 

@@ -16,6 +16,7 @@ find_package(catkin REQUIRED
   std_srvs
   tf
   xmlrpcpp
+  backward_ros
   )
 
 find_package(Boost COMPONENTS thread chrono REQUIRED)
