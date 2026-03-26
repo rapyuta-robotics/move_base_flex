@@ -48,6 +48,18 @@ ControllerAction::ControllerAction(
     const mbf_utility::RobotInformation &robot_info)
     : AbstractActionBase(action_name, robot_info)
 {
+  // informative topics: current navigation goal
+  ros::NodeHandle private_nh("~");
+  goal_pub_ = private_nh.advertise<geometry_msgs::PoseStamped>("controller_goal", 1);
+}
+
+void ControllerAction::reconfigure(mbf_abstract_nav::MoveBaseFlexConfig& config, uint32_t level)
+{
+  AbstractActionBase::reconfigure(config, level);
+
+  oscillation_timeout_ = ros::Duration(config.oscillation_timeout);
+  oscillation_distance_ = config.oscillation_distance;
+  oscillation_angle_ = config.oscillation_angle;
 }
 
 void ControllerAction::start(
@@ -69,9 +81,10 @@ void ControllerAction::start(
   if(slot_it != concurrency_slots_.end() && slot_it->second.in_use)
   {
     boost::lock_guard<boost::mutex> goal_guard(goal_mtx_);
+    const auto slot_status = slot_it->second.goal_handle.getGoalStatus().status;
     if ((slot_it->second.execution->getName() == goal_handle.getGoal()->controller ||
          goal_handle.getGoal()->controller.empty()) &&
-        slot_it->second.goal_handle.getGoalStatus().status == actionlib_msgs::GoalStatus::ACTIVE)
+        (slot_status == actionlib_msgs::GoalStatus::ACTIVE || slot_status == actionlib_msgs::GoalStatus::PREEMPTING))
     {
       ROS_DEBUG_STREAM_NAMED(name_, "Updating running controller goal of slot " << static_cast<int>(slot));
       update_plan = true;
@@ -85,6 +98,7 @@ void ControllerAction::start(
                                 goal_handle.getGoal()->angle_tolerance);
       // Update also goal pose, so the feedback remains consistent
       goal_pose_ = goal_handle.getGoal()->path.poses.back();
+      goal_pub_.publish(goal_pose_);
       mbf_msgs::ExePathResult result;
       fillExePathResult(mbf_msgs::ExePathResult::CANCELED, "Goal preempted by a new plan", result);
       concurrency_slots_[slot].goal_handle.setCanceled(result, result.message);
@@ -115,13 +129,6 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
 
   ros::NodeHandle private_nh("~");
 
-  double oscillation_timeout_tmp;
-  private_nh.param("oscillation_timeout", oscillation_timeout_tmp, 0.0);
-  ros::Duration oscillation_timeout(oscillation_timeout_tmp);
-
-  double oscillation_distance;
-  private_nh.param("oscillation_distance", oscillation_distance, 0.03);
-
   mbf_msgs::ExePathResult result;
   mbf_msgs::ExePathFeedback feedback;
 
@@ -143,6 +150,7 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
   }
 
   goal_pose_ = plan.back();
+  goal_pub_.publish(goal_pose_);
   ROS_DEBUG_STREAM_NAMED(name_, "Called action \""
       << name_ << "\" with plan:" << std::endl
       << "frame: \"" << goal.path.header.frame_id << "\" " << std::endl
@@ -273,15 +281,16 @@ void ControllerAction::runImpl(GoalHandle &goal_handle, AbstractControllerExecut
         break;
 
       case AbstractControllerExecution::GOT_LOCAL_CMD:
-        if (!oscillation_timeout.isZero())
+        if (!oscillation_timeout_.isZero())
         {
           // check if oscillating
-          if (mbf_utility::distance(robot_pose_, oscillation_pose) >= oscillation_distance)
+          if (mbf_utility::distance(robot_pose_, oscillation_pose) >= oscillation_distance_ ||
+              mbf_utility::angle(robot_pose_, oscillation_pose) >= oscillation_angle_)
           {
             last_oscillation_reset = ros::Time::now();
             oscillation_pose = robot_pose_;
           }
-          else if (last_oscillation_reset + oscillation_timeout < ros::Time::now())
+          else if (last_oscillation_reset + oscillation_timeout_ < ros::Time::now())
           {
             ROS_WARN_STREAM_NAMED(name_, "The controller is oscillating for "
                 << (ros::Time::now() - last_oscillation_reset).toSec() << "s");
